@@ -85,7 +85,7 @@ const RecentProjects = () => {
             to="work"
             className="flex items-center gap-3 text-base font-semibold text-base-content hover:opacity-85 transition-opacity group shrink-0"
           >
-            <span className="text-lg md:text-xl font-bold uppercase tracking-tight">
+            <span className="text-xs md:text-xl font-bold uppercase tracking-tight">
               See all projects
             </span>
             <span className="relative flex items-center justify-center w-8 h-8 rounded-full border border-current overflow-hidden group-hover:bg-base-content group-hover:text-base-100 transition-colors duration-300">
