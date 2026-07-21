@@ -115,7 +115,7 @@ const Home = () => {
   }, [])
 
   return (
-    <div ref={containerRef} className="relative text-7xl mt-30">
+    <div ref={containerRef} className="relative text-7xl mt-20">
       {/* HERO SECTION */}
       <div className="flex flex-col justify-center items-center overflow-x-hidden">
         <InfiniteText text="FRONTEND DEVELOPER" />

@@ -19,25 +19,25 @@ const MENU_ITEMS = [
     {
         text: 'home',
         imgUrl:
-        'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=90',
+            'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=90',
         link: '/',
     },
     {
         text: 'work',
         imgUrl:
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=90',
+            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=90',
         link: 'work',
     },
     {
         text: 'animations',
         imgUrl:
-        'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=900&q=90',
+            'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=900&q=90',
         link: 'animations',
     },
     {
         text: 'academics',
         imgUrl:
-        'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=900&q=90',
+            'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=900&q=90',
         link: 'academics',
     },
 ];
@@ -392,8 +392,10 @@ export default function Header() {
 
     return (
         <div className="">
-            <header className="w-full fixed top-6 z-50 flex justify-around items-center gap-3 text-base-content">
-                <Link to={"/"} className="font-semibold text-lg tracking-wide select-none">Asadbek</Link>
+            <header className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-6xl z-50 flex justify-between items-center gap-3 px-2 md:px-5 text-base-content">
+                <Link to={"/"} className="font-semibold text-lg tracking-wide select-none">
+                    Asadbek
+                </Link>
                 <div className="flex items-center gap-3">
                     <ThemeToggle sizeClass={themeButtonSize} />
                     <MenuGridButton isOpen={isOpen} onToggle={handleToggle} sizeClass={gridButtonSize} />
@@ -425,7 +427,7 @@ export default function Header() {
                 >
                     {MENU_ITEMS.map((item) => (
                         <div key={item.text} className="animate-link opacity-0 pointer-events-none">
-                            <HoverImageLink text={item.text} imgUrl={item.imgUrl} link={item.link}/>
+                            <HoverImageLink text={item.text} imgUrl={item.imgUrl} link={item.link} />
                         </div>
                     ))}
                 </nav>

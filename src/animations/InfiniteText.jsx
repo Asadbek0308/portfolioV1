@@ -4,7 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const BASE_SPEED = 180 // px per second
+const BASE_SPEED = 120 // px per second
 
 const InfiniteText = ({ text = "FRONTEND DEVELOPER" }) => {
   const containerRef = useRef(null)
