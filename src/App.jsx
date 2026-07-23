@@ -15,34 +15,32 @@ import Animations from './pages/Animations';
 import Academics from './pages/Academics';
 import Work from './pages/Work';
 import ScrollToTop from './components/ScrollToTop';
+import CursorGrid from './animations/CursorGrid';
+
+// 2. Import your GreetingText preloader component
+import GreetingText from './animations/GreetingText'; // adjust path to where you saved it
 
 // Register GSAP Plugin
 gsap.registerPlugin(ScrollTrigger);
 
 const App = () => {
   useEffect(() => {
-    // 2. Initialize Lenis
     const lenis = new Lenis({
-      duration: 1.2, // Scroll speed/duration (higher = smoother & slower)
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // Smooth momentum curve
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
-      wheelMultiplier: 0.8, // Reduces aggressive trackpad/wheel flicks
+      wheelMultiplier: 0.8,
     });
 
-    // 3. Sync Lenis scroll position with GSAP ScrollTrigger
     lenis.on('scroll', ScrollTrigger.update);
 
-    // 4. Drive Lenis via GSAP's RAF loop for 60fps+ sync
     const update = (time) => {
       lenis.raf(time * 1000);
     };
 
     gsap.ticker.add(update);
-
-    // Disable lag smoothing to prevent visual stuttering during heavy animations
     gsap.ticker.lagSmoothing(0);
 
-    // Cleanup on unmount
     return () => {
       gsap.ticker.remove(update);
       lenis.destroy();
@@ -52,13 +50,16 @@ const App = () => {
   return (
     <div>
       <ThemeProvider>
+        {/* Render the preloader overlay here */}
+        <GreetingText />
+
         <Header />
         <ErrorBoundary>
           <ScrollToTop/>
+          {/* <CursorGrid/> */}
           <Routes>
             <Route path='/' element={<Home />} />
             <Route path='/animations' element={<Animations />} />
-
             <Route path='/academics' element={<Academics />} />
             <Route path='/work' element={<Work />} />
             <Route path='*' element={<NotFound />} />
