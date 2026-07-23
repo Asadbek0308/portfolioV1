@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import Magnet from '../animations/Magnet'
 
 const Footer = () => {
   return (
@@ -9,13 +10,13 @@ const Footer = () => {
       <div className="relative h-[calc(100vh+420px)] md:h-[calc(100vh+350px)] -top-[100vh]">
         {/* Sticky viewport position */}
         <div className="sticky top-[calc(100vh-420px)] md:top-[calc(100vh-350px)] h-[420px] md:h-[350px]">
-          
+
           {/* Centered flex wrapper */}
           <div className="w-full h-full max-w-7xl mx-auto px-6 md:px-12 lg:px-20 py-6 md:py-8 flex flex-col justify-between items-center text-center">
-            
+
             {/* Top Row: CTA + Links Centered */}
             <div className="w-full grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              
+
               {/* CTA Section */}
               <div className="md:col-span-7 flex flex-col items-center md:items-start text-center md:text-left space-y-2">
                 <span className="font-condensed text-xs sm:text-sm font-bold uppercase tracking-wider text-base-100/60">
@@ -96,11 +97,24 @@ const Footer = () => {
             </div>
 
             {/* Bottom Row */}
-            <div className="w-full pt-4 border-t border-base-100/10 flex flex-row justify-between items-center text-xs font-medium text-base-100/60">
-              <p>© {new Date().getFullYear()} Asadbek. All rights reserved.</p>
-              <p className="font-condensed uppercase tracking-wider">
-                GSAP + React
-              </p>
+            <div className="w-full transition-all pt-4 border-t border-base-100/10 flex flex-row justify-between items-center font-light text-xl sm:text-2xl md:text-3xl tracking-tight">
+
+              <Magnet>
+                <a
+                  href="mailto:hello@russellnumo.nl"
+                  className="hover:opacity-70 transition-opacity text-base-100 hover:text-base-100/80"
+                >
+                  hello@russellnumo.nl
+                </a>
+              </Magnet>
+              <Magnet>
+                <a
+                  href="tel:+999999999999"
+                  className="opacity-70 font-bold hover:opacity-100 transition-opacity text-base-100/80 hover:text-base-100"
+                >
+                  +998 99 999 99 99
+                </a>
+              </Magnet>
             </div>
 
           </div>

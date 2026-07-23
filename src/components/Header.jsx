@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
-// Import your custom useTheme hook
-import { useTheme } from '../context/ThemeContext'; // Update this path to match your file structure
-
-// NOTE: MorphSVGPlugin is a paid Club GreenSock / GSAP Business plugin.
-// It will not resolve from the free public "gsap" package — you need it
-// installed from your licensed GSAP registry for the ThemeToggle below to work.
+import { useTheme } from '../context/ThemeContext';
 import { MorphSVGPlugin } from 'gsap/MorphSVGPlugin';
 import { Link } from 'react-router-dom';
 
@@ -48,9 +43,9 @@ const PLUS_DOTS = new Set([2, 4, 5, 6, 8]);
 const CROSS_DOTS = new Set([1, 3, 5, 7, 9]);
 
 /* ==========================================================================
-   HOVER IMAGE LINK (Fixed Trigger Area & Height Matching)
+   HOVER IMAGE LINK (Received onClick prop to fix scope issue)
    ========================================================================== */
-function HoverImageLink({ text, imgUrl, link }) {
+function HoverImageLink({ text, imgUrl, link, onClick }) {
     const [isHovered, setIsHovered] = useState(false);
     const imageWrapRef = useRef(null);
     const imageRef = useRef(null);
@@ -117,6 +112,7 @@ function HoverImageLink({ text, imgUrl, link }) {
     return (
         <Link
             to={`${link}`}
+            onClick={onClick}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             className="inline-flex items-end select-none cursor-pointer focus:outline-none h-fit pointer-events-auto"
@@ -145,10 +141,10 @@ function HoverImageLink({ text, imgUrl, link }) {
 }
 
 /* ==========================================================================
-   MENU GRID TRIGGER — Uses useTheme() to switch dot colors instantly
+   MENU GRID TRIGGER
    ========================================================================== */
 function MenuGridButton({ isOpen, onToggle, sizeClass }) {
-    const { theme } = useTheme(); // Consuming your custom hook
+    const { theme } = useTheme();
     const [isGridHovered, setIsGridHovered] = useState(false);
     const containerRef = useRef(null);
     const waveTl = useRef(null);
@@ -215,7 +211,7 @@ function MenuGridButton({ isOpen, onToggle, sizeClass }) {
         }
 
         return () => waveTl.current?.kill();
-    }, [isOpen, isGridHovered, theme]); // Listens to theme updates instantly
+    }, [isOpen, isGridHovered, theme]);
 
     return (
         <button
@@ -225,8 +221,9 @@ function MenuGridButton({ isOpen, onToggle, sizeClass }) {
             onMouseLeave={() => setIsGridHovered(false)}
             aria-expanded={isOpen}
             aria-label={isOpen ? 'Close menu' : 'Open menu'}
-            className={`grid grid-cols-3 gap-1 place-items-center rounded-xl transition-colors duration-300 active:scale-90 focus:outline-none border border-base-content/10 ${sizeClass} ${isOpen ? 'bg-base-200' : 'bg-base-100'
-                }`}
+            className={`grid grid-cols-3 gap-1 place-items-center rounded-xl transition-colors duration-300 active:scale-90 focus:outline-none border border-base-content/10 ${sizeClass} ${
+                isOpen ? 'bg-base-200' : 'bg-base-100'
+            }`}
         >
             {ALL_DOTS.map((num) => (
                 <span key={num} data-index={num} className="grid-dot w-1.5 h-1.5 rounded-full block" />
@@ -239,7 +236,7 @@ function MenuGridButton({ isOpen, onToggle, sizeClass }) {
    THEME TOGGLE
    ========================================================================== */
 function ThemeToggle({ sizeClass }) {
-    const { theme, setTheme } = useTheme(); // Consuming your custom hook
+    const { theme, setTheme } = useTheme();
     const [isHovered, setIsHovered] = useState(false);
     const pathRef = useRef(null);
 
@@ -284,7 +281,7 @@ function ThemeToggle({ sizeClass }) {
 }
 
 /* ==========================================================================
-   INTEGRATED FULLSCREEN MENU (Header Component)
+   HEADER COMPONENT
    ========================================================================== */
 export default function Header() {
     const [isOpen, setIsOpen] = useState(false);
@@ -302,25 +299,42 @@ export default function Header() {
         };
     }, []);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const onKeyDown = (e) => {
-            if (e.key === 'Escape') handleToggle();
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [isOpen]);
-
-    const handleToggle = useCallback(() => {
+    const playCloseTransition = useCallback(() => {
         if (isAnimating.current) return;
-        if (!isOpen) {
-            playOpenTransition();
-        } else {
-            playCloseTransition();
-        }
-    }, [isOpen]);
+        isAnimating.current = true;
 
-    const playOpenTransition = () => {
+        const strips = stripsRef.current;
+        const linkItems = linksContainerRef.current?.querySelectorAll('.animate-link');
+
+        tl.current?.kill();
+        gsap.killTweensOf(strips);
+        if (linkItems) gsap.killTweensOf(linkItems);
+
+        tl.current = gsap.timeline({
+            onComplete: () => {
+                gsap.set(menuRef.current, { display: 'none', pointerEvents: 'none' });
+                setIsOpen(false);
+                isAnimating.current = false;
+            },
+        });
+
+        tl.current
+            .set(strips, { transformOrigin: 'right center' }, 0)
+            .to(linkItems, { y: -40, opacity: 0, duration: 0.3, ease: 'power2.out', stagger: 0.03 }, 0)
+            .to(
+                strips,
+                {
+                    scaleX: 0,
+                    duration: 0.85,
+                    ease: 'cinematic',
+                    stagger: { amount: 0.2, from: 'end' },
+                },
+                0.15
+            );
+    }, []);
+
+    const playOpenTransition = useCallback(() => {
+        if (isAnimating.current) return;
         isAnimating.current = true;
         setIsOpen(true);
 
@@ -352,48 +366,33 @@ export default function Header() {
                 { y: 0, opacity: 1, duration: 0.75, ease: 'power4.out', stagger: 0.08 },
                 '-=0.35'
             );
-    };
+    }, []);
 
-    const playCloseTransition = () => {
-        isAnimating.current = true;
+    const handleToggle = useCallback(() => {
+        if (isAnimating.current) return;
+        if (!isOpen) {
+            playOpenTransition();
+        } else {
+            playCloseTransition();
+        }
+    }, [isOpen, playOpenTransition, playCloseTransition]);
 
-        const strips = stripsRef.current;
-        const linkItems = linksContainerRef.current?.querySelectorAll('.animate-link');
-
-        tl.current?.kill();
-        gsap.killTweensOf(strips);
-        if (linkItems) gsap.killTweensOf(linkItems);
-
-        tl.current = gsap.timeline({
-            onComplete: () => {
-                gsap.set(menuRef.current, { display: 'none', pointerEvents: 'none' });
-                setIsOpen(false);
-                isAnimating.current = false;
-            },
-        });
-
-        tl.current
-            .set(strips, { transformOrigin: 'right center' }, 0)
-            .to(linkItems, { y: -40, opacity: 0, duration: 0.3, ease: 'power2.out', stagger: 0.03 }, 0)
-            .to(
-                strips,
-                {
-                    scaleX: 0,
-                    duration: 0.85,
-                    ease: 'cinematic',
-                    stagger: { amount: 0.2, from: 'end' },
-                },
-                0.15
-            );
-    };
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') handleToggle();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isOpen, handleToggle]);
 
     const gridButtonSize = 'w-11 h-11 p-2';
     const themeButtonSize = 'w-11 h-11 p-2';
 
     return (
-        <div className="">
+        <div>
             <header className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-6xl z-50 flex justify-between items-center gap-3 p-3 rounded-2xl bg-base-content/20 backdrop-blur-xs">
-                <Link to={"/"} className="font-semibold text-lg tracking-wide select-none text-base-100">
+                <Link to={'/'} className="font-semibold text-lg tracking-wide select-none text-base-100">
                     Asadbek
                 </Link>
                 <div className="flex items-center gap-3">
@@ -427,7 +426,12 @@ export default function Header() {
                 >
                     {MENU_ITEMS.map((item) => (
                         <div key={item.text} className="animate-link opacity-0 pointer-events-none">
-                            <HoverImageLink text={item.text} imgUrl={item.imgUrl} link={item.link} />
+                            <HoverImageLink
+                                text={item.text}
+                                imgUrl={item.imgUrl}
+                                link={item.link}
+                                onClick={playCloseTransition}
+                            />
                         </div>
                     ))}
                 </nav>

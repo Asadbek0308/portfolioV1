@@ -103,7 +103,7 @@ const FilterProjects = () => {
       </div>
 
       {/* Image Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-y-12 gap-x-1 max-w-9xl mx-auto min-h-[1200px]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-y-12 gap-x-1 max-w-9xl mx-auto min-h-300">
         {projects.map((project, index) => {
           const isSelected = activeFilter === 'All Work' || project.category === activeFilter
           const displayIndex = String(index + 1).padStart(2, '0')
