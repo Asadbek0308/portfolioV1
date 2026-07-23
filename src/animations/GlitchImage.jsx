@@ -1,60 +1,43 @@
 import { useEffect, useId, useRef } from "react";
 import gsap from "gsap";
 
-/**
- * GlitchImage
- * ---------------------------------------------------------------
- * Splits the image into thin horizontal lines. Hover near one and
- * that line -- plus a couple of lines above and below it -- tears
- * into an RGB-split, horizontally-jittering glitch. Move the mouse
- * up and down and the glitched band scans with it; everywhere else
- * stays a clean still frame.
- *
- * Usage:
- *   <GlitchImage
- *     src="/photo.jpg"
- *     alt="Guest portrait"
- *     className="h-80 w-64"  // Flexible sizing controls from parent
- *     lineCount={26}
- *     activeSpread={2}
- *   />
- * ---------------------------------------------------------------
- */
-
 const DEFAULT_SRC =
   "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?q=80&w=800&auto=format&fit=crop";
 
 export default function GlitchImage({
   src = DEFAULT_SRC,
   alt = "Portrait",
-  className = "aspect-4/5 w-full max-w-xs", // Default size when no className is passed
+  className = "aspect-4/5 w-full max-w-xs",
   grayscale = true,
-  lineCount = 26,
+  lineCount = 20, // Reduced slightly from 26 for significant GPU savings
   activeSpread = 2,
 }) {
   const uid = useId().replace(/:/g, "");
   const rootRef = useRef(null);
-  const shiftRefs = useRef([]); // per-line datamosh (horizontal shift) layer
-  const redRefs = useRef([]); // per-line red-channel overlay
-  const cyanRefs = useRef([]); // per-line cyan-channel overlay
+  const shiftRefs = useRef([]);
+  const redRefs = useRef([]);
+  const cyanRefs = useRef([]);
   const tickerRef = useRef(null);
-  const hoverIndexRef = useRef(-1); // -1 = nothing hovered yet
+  const hoverIndexRef = useRef(-1);
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
 
+    // Reset line transforms smoothly
     const resetLine = (i, duration = 0.3) => {
+      if (!shiftRefs.current[i]) return;
+      
       gsap.to([shiftRefs.current[i], redRefs.current[i], cyanRefs.current[i]], {
         x: 0,
         duration,
         ease: "power3.out",
-        overwrite: true,
+        overwrite: "auto",
       });
       gsap.to([redRefs.current[i], cyanRefs.current[i]], {
         opacity: 0,
         duration,
-        overwrite: true,
+        overwrite: "auto",
       });
     };
 
@@ -66,44 +49,51 @@ export default function GlitchImage({
         const isActive = hoverIndex >= 0 && dist <= activeSpread;
 
         if (!isActive) {
-          resetLine(i, 0.25);
+          resetLine(i, 0.2);
           continue;
         }
 
         const intensity = 2 - dist / (activeSpread + 1);
 
-        gsap.to(redRefs.current[i], {
-          x: gsap.utils.random(-10, 10) * intensity,
-          opacity: 0.85 * intensity,
-          duration: 0.06,
-          ease: "steps(1)",
-          overwrite: true,
-        });
-        gsap.to(cyanRefs.current[i], {
-          x: gsap.utils.random(-10, 10) * intensity,
-          opacity: 0.85 * intensity,
-          duration: 0.06,
-          ease: "steps(1)",
-          overwrite: true,
-        });
-        gsap.to(shiftRefs.current[i], {
-          x: gsap.utils.random(-16, 16) * intensity,
-          duration: 0.05,
-          ease: "steps(1)",
-          overwrite: true,
-        });
+        if (redRefs.current[i]) {
+          gsap.to(redRefs.current[i], {
+            x: gsap.utils.random(-8, 8) * intensity,
+            opacity: 0.8 * intensity,
+            duration: 0.06,
+            ease: "none",
+            overwrite: "auto",
+          });
+        }
+        if (cyanRefs.current[i]) {
+          gsap.to(cyanRefs.current[i], {
+            x: gsap.utils.random(-8, 8) * intensity,
+            opacity: 0.8 * intensity,
+            duration: 0.06,
+            ease: "none",
+            overwrite: "auto",
+          });
+        }
+        if (shiftRefs.current[i]) {
+          gsap.to(shiftRefs.current[i], {
+            x: gsap.utils.random(-12, 12) * intensity,
+            duration: 0.05,
+            ease: "none",
+            overwrite: "auto",
+          });
+        }
       }
     };
 
     const startGlitch = () => {
+      if (tickerRef.current) clearInterval(tickerRef.current);
       glitchTick();
-      tickerRef.current = setInterval(glitchTick, 90);
+      tickerRef.current = setInterval(glitchTick, 80);
     };
 
     const stopGlitch = () => {
-      clearInterval(tickerRef.current);
+      if (tickerRef.current) clearInterval(tickerRef.current);
       hoverIndexRef.current = -1;
-      for (let i = 0; i < lineCount; i++) resetLine(i, 0.35);
+      for (let i = 0; i < lineCount; i++) resetLine(i, 0.3);
     };
 
     const handlePointerMove = (e) => {
@@ -122,7 +112,7 @@ export default function GlitchImage({
     root.addEventListener("touchend", stopGlitch);
 
     return () => {
-      clearInterval(tickerRef.current);
+      if (tickerRef.current) clearInterval(tickerRef.current);
       root.removeEventListener("mouseenter", startGlitch);
       root.removeEventListener("mousemove", handlePointerMove);
       root.removeEventListener("mouseleave", stopGlitch);
@@ -133,7 +123,7 @@ export default function GlitchImage({
   }, [lineCount, activeSpread]);
 
   const imgStyle = {
-    backgroundImage: `url(${src})`,
+    backgroundImage: `url("${src}")`,
     backgroundSize: "cover",
     backgroundPosition: "center",
   };
@@ -141,10 +131,10 @@ export default function GlitchImage({
   return (
     <div
       ref={rootRef}
-      className={`group relative isolate cursor-pointer select-none overflow-hidden rounded-2xl bg-neutral-200 ${className}`}
+      className={`group relative isolate cursor-pointer select-none overflow-hidden rounded-2xl bg-neutral-900 ${className}`}
     >
-      {/* SVG filters that isolate a single color channel */}
-      <svg className="absolute h-0 w-0">
+      {/* SVG filters for RGB split */}
+      <svg className="absolute h-0 w-0 pointer-events-none">
         <defs>
           <filter id={`red-${uid}`}>
             <feColorMatrix
@@ -167,7 +157,7 @@ export default function GlitchImage({
         </defs>
       </svg>
 
-      {/* Base image -- always clean */}
+      {/* Base image */}
       <div
         className={`absolute inset-0 ${grayscale ? "grayscale" : ""}`}
         style={imgStyle}
@@ -185,6 +175,7 @@ export default function GlitchImage({
             height: `${100 / lineCount}%`,
           }}
         >
+          {/* Main shifted layer */}
           <div
             ref={(el) => (shiftRefs.current[i] = el)}
             className={`absolute left-0 w-full ${grayscale ? "grayscale" : ""}`}
@@ -192,28 +183,31 @@ export default function GlitchImage({
               ...imgStyle,
               top: `${-i * 100}%`,
               height: `${lineCount * 100}%`,
+              willChange: "transform",
             }}
           />
+          {/* Red Channel */}
           <div
             ref={(el) => (redRefs.current[i] = el)}
-            className={`absolute left-0 w-full mix-blend-screen ${grayscale ? "grayscale" : ""}`}
+            className={`absolute left-0 w-full mix-blend-screen opacity-0 ${grayscale ? "grayscale" : ""}`}
             style={{
               ...imgStyle,
               top: `${-i * 100}%`,
               height: `${lineCount * 100}%`,
               filter: `url(#red-${uid})`,
-              opacity: 0,
+              willChange: "transform, opacity",
             }}
           />
+          {/* Cyan Channel */}
           <div
             ref={(el) => (cyanRefs.current[i] = el)}
-            className={`absolute left-0 w-full mix-blend-screen ${grayscale ? "grayscale" : ""}`}
+            className={`absolute left-0 w-full mix-blend-screen opacity-0 ${grayscale ? "grayscale" : ""}`}
             style={{
               ...imgStyle,
               top: `${-i * 100}%`,
               height: `${lineCount * 100}%`,
               filter: `url(#cyan-${uid})`,
-              opacity: 0,
+              willChange: "transform, opacity",
             }}
           />
         </div>

@@ -392,8 +392,8 @@ export default function Header() {
 
     return (
         <div className="">
-            <header className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-6xl z-50 flex justify-between items-center gap-3 px-2 md:px-5 text-base-content">
-                <Link to={"/"} className="font-semibold text-lg tracking-wide select-none">
+            <header className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-6xl z-50 flex justify-between items-center gap-3 p-3 rounded-2xl bg-base-content/20 backdrop-blur-xs">
+                <Link to={"/"} className="font-semibold text-lg tracking-wide select-none text-base-100">
                     Asadbek
                 </Link>
                 <div className="flex items-center gap-3">

@@ -1,10 +1,12 @@
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
+// import demo_portfolio from '../assets/demo_portfolio.JPG'
+import demo_portfolio from '../assets/demo_portfolio.webp'
+
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
 import InfiniteText from '../animations/InfiniteText'
 import GlitchImage from '../animations/GlitchImage'
-import demo_portfolio from '../assets/demo_portfolio.JPG'
 import { Link } from 'react-router-dom'
 import RecentProjects from '../animations/RecentProjects'
 
