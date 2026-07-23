@@ -31,7 +31,7 @@ export default function GreetingText() {
       tl.to(el, {
         y: -100,
         opacity: 0,
-        duration: 0.14,
+        duration: 0.1,
         ease: "power2.out",
         onComplete: () => {
           // Update text state mid-transition while invisible
@@ -42,7 +42,7 @@ export default function GreetingText() {
         .to(el, {
           y: 0,
           opacity: 1,
-          duration: 0.14,
+          duration: 0.1,
           ease: "power2.out",
         })
         .to({}, { duration: 0.18 }); // Pause duration before next slide
