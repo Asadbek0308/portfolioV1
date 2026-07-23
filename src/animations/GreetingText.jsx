@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 
-const greetings = [
+const GREETINGS = [
   { text: "Hello", language: "English" },
   { text: "Привет", language: "Russian" },
   { text: "Bonjour", language: "French" },
-  { text: "Hola", language: "Spanish" },
   { text: "Ciao", language: "Italian" },
   { text: "안녕하세요", language: "Korean" },
   { text: "Salom", language: "Uzbek" },
@@ -13,71 +12,83 @@ const greetings = [
 ];
 
 export default function GreetingText() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const textRef = useRef(null);
-  const containerRef = useRef(null); // Ref to animate the full-screen overlay
+  const containerRef = useRef(null);
+  const itemsRef = useRef([]);
 
   useEffect(() => {
-    const el = textRef.current;
-    const container = containerRef.current;
-    if (!el || !container) return;
+    // gsap.context handles scoping and automatic cleanup on unmount
+    const ctx = gsap.context(() => {
+      const items = itemsRef.current.filter(Boolean);
+      if (!items.length || !containerRef.current) return;
 
-    // Timeline to sequence through all greetings
-    const tl = gsap.timeline();
-
-    greetings.forEach((_, index) => {
-      if (index === 0) return; // Skip initial state setup for the first item
-
-      tl.to(el, {
-        y: -100,
-        opacity: 0,
-        duration: 0.1,
-        ease: "power2.out",
+      const tl = gsap.timeline({
         onComplete: () => {
-          // Update text state mid-transition while invisible
-          setCurrentIndex(index);
+          // Hide overlay & prevent blocking mouse/touch events after completion
+          gsap.set(containerRef.current, { display: "none", pointerEvents: "none" });
         },
-      })
-        .set(el, { y: 100, opacity: 0 }) // Instant reset to bottom
-        .to(el, {
-          y: 0,
-          opacity: 1,
-          duration: 0.1,
-          ease: "power2.out",
+      });
+
+      // 1. Initial setup: hide all items except the first
+      gsap.set(items, { yPercent: 100, opacity: 0 });
+      gsap.set(items[0], { yPercent: 0, opacity: 1 });
+
+      // 2. Animate through greetings smoothly
+      items.forEach((item, index) => {
+        if (index === 0) return;
+
+        const prevItem = items[index - 1];
+
+        tl.to(prevItem, {
+          yPercent: -100,
+          opacity: 0,
+          duration: 0.15,
+          ease: "power2.in",
         })
-        .to({}, { duration: 0.18 }); // Pause duration before next slide
-    });
+          .to(
+            item,
+            {
+              yPercent: 0,
+              opacity: 1,
+              duration: 0.15,
+              ease: "power2.out",
+            }
+          )
+          .to({}, { duration: 0.18 }); // Hold duration for each word
+      });
 
-    // Wait 1 second on the final greeting, then slide up to reveal website
-    tl.to(container, {
-      yPercent: -100,
-      duration: 0.8,
-      ease: "power3.inOut",
-      delay: 0.7, // 1-second delay before sliding up
-    });
+      // 3. Slide up overlay to reveal page content
+      tl.to(containerRef.current, {
+        yPercent: -100,
+        duration: 0.8,
+        ease: "power3.inOut",
+        delay: 0.5,
+      });
+    }, containerRef);
 
-    return () => {
-      tl.kill();
-    };
+    return () => ctx.revert(); // Reverts all GSAP animations and clears memory
   }, []);
 
   return (
     <section
       ref={containerRef}
       aria-label="Rapid greetings in different languages"
-      className="fixed inset-0 z-60 flex h-screen w-screen items-center justify-center bg-white dark:bg-black p-4"
+      className="fixed inset-0 z-51 flex h-screen w-screen items-center justify-center bg-white dark:bg-black p-4 select-none overflow-hidden"
     >
-      <div className="relative flex h-16 w-60 items-center justify-center overflow-visible">
-        <div
-          ref={textRef}
-          className="absolute flex items-center gap-2 font-medium text-2xl text-gray-800 dark:text-gray-200"
-        >
+      <div className="relative flex h-16 w-60 items-center justify-center overflow-hidden">
+        {GREETINGS.map((greeting, index) => (
           <div
-            aria-hidden="true"
-            className="h-2 w-2 rounded-full bg-black dark:bg-white"
-          />
-          {greetings[currentIndex].text}
-        </div>
+            key={`${greeting.language}-${index}`}
+            ref={(el) => (itemsRef.current[index] = el)}
+            className="absolute flex items-center gap-2 font-medium text-2xl text-gray-800 dark:text-gray-200"
+            style={{ willChange: "transform, opacity" }}
+          >
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 rounded-full bg-black dark:bg-white shrink-0"
+            />
+            {greeting.text}
+          </div>
+        ))}
       </div>
     </section>
   );
