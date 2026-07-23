@@ -11,6 +11,9 @@ import Lenis from 'lenis';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Footer from './components/Footer';
+import Animations from './pages/Animations';
+import Academics from './pages/Academics';
+import Work from './pages/Work';
 
 // Register GSAP Plugin
 gsap.registerPlugin(ScrollTrigger);
@@ -52,6 +55,10 @@ const App = () => {
         <ErrorBoundary>
           <Routes>
             <Route path='/' element={<Home />} />
+            <Route path='/animations' element={<Animations />} />
+
+            <Route path='/academics' element={<Academics />} />
+            <Route path='/work' element={<Work />} />
             <Route path='*' element={<NotFound />} />
           </Routes>
         </ErrorBoundary>

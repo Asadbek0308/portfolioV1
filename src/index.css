@@ -26,3 +26,12 @@ html.lenis, html.lenis body {
 .lenis.lenis-smooth iframe {
   pointer-events: none;
 }
+
+html {
+  overflow-y: scroll;       /* keep scrolling active */
+  scrollbar-width: none;    /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
+}
+html::-webkit-scrollbar {
+  display: none;            /* Chrome, Safari, Edge, Opera */
+}

@@ -5,6 +5,8 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const BASE_SPEED = 120 // px per second
+const MAX_BOOST = 5 // max multiplier added on top of BASE_SPEED while actively scrolling
+const IDLE_RESET_MS = 120 // how long without a scroll update before we decay back to BASE_SPEED
 
 const InfiniteText = ({ text = "FRONTEND DEVELOPER" }) => {
   const containerRef = useRef(null)
@@ -19,6 +21,7 @@ const InfiniteText = ({ text = "FRONTEND DEVELOPER" }) => {
     let xPos = 0
     let currentSpeed = BASE_SPEED // signed px/sec
     let targetSpeed = BASE_SPEED
+    let idleTimer = null
 
     // Keeps the loop width correct across resizes/breakpoints/font
     // loads — nothing to recalculate manually.
@@ -50,8 +53,14 @@ const InfiniteText = ({ text = "FRONTEND DEVELOPER" }) => {
     const trigger = ScrollTrigger.create({
       onUpdate: (self) => {
         const direction = self.direction // 1 down, -1 up
-        const velocityBoost = gsap.utils.clamp(0, 5, Math.abs(self.getVelocity() / 300))
+        const velocityBoost = gsap.utils.clamp(0, MAX_BOOST, Math.abs(self.getVelocity() / 300))
         targetSpeed = direction * BASE_SPEED * (1 + velocityBoost)
+
+        clearTimeout(idleTimer)
+        idleTimer = setTimeout(() => {
+          const sign = Math.sign(targetSpeed) || 1
+          targetSpeed = sign * BASE_SPEED // decay magnitude, keep direction
+        }, IDLE_RESET_MS)
       },
     })
 
@@ -59,6 +68,7 @@ const InfiniteText = ({ text = "FRONTEND DEVELOPER" }) => {
       gsap.ticker.remove(tick)
       trigger.kill()
       ro.disconnect()
+      clearTimeout(idleTimer)
     }
   }, [])
 

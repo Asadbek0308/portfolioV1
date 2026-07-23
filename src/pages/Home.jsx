@@ -142,10 +142,10 @@ const Home = () => {
           </div>
 
           <div className="md:col-span-4 flex justify-center items-center [perspective:1200px]">
-            <div ref={targetSpotRef} className="w-full aspect-4/5 rounded-3xl relative [transform-style:preserve-3d]">
+            <div ref={targetSpotRef} className="w-full aspect-4/5 rounded-3xl relative transform-3d">
               <div
                 ref={imageWrapperRef}
-                className="w-full h-full rounded-3xl overflow-hidden shadow-2xl will-change-transform [transform-style:preserve-3d]"
+                className="w-full h-full rounded-3xl overflow-hidden shadow-2xl will-change-transform transform-3d"
               >
                 <GlitchImage
                   grayscale={isGrayscale}
