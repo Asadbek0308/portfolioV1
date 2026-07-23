@@ -14,6 +14,7 @@ import Footer from './components/Footer';
 import Animations from './pages/Animations';
 import Academics from './pages/Academics';
 import Work from './pages/Work';
+import ScrollToTop from './components/ScrollToTop';
 
 // Register GSAP Plugin
 gsap.registerPlugin(ScrollTrigger);
@@ -53,6 +54,7 @@ const App = () => {
       <ThemeProvider>
         <Header />
         <ErrorBoundary>
+          <ScrollToTop/>
           <Routes>
             <Route path='/' element={<Home />} />
             <Route path='/animations' element={<Animations />} />
