@@ -55,7 +55,6 @@ function HoverImageLink({ text, imgUrl, link, onClick }) {
         const imgEl = imgRef.current;
         if (!wrapEl || !imgEl) return;
 
-        // Animate hover expansion only on desktop devices
         if (window.innerWidth >= 768) {
             gsap.killTweensOf([wrapEl, imgEl]);
 
@@ -88,7 +87,6 @@ function HoverImageLink({ text, imgUrl, link, onClick }) {
             onMouseLeave={() => setIsHovered(false)}
             className="inline-flex items-center select-none cursor-pointer focus:outline-none h-fit pointer-events-auto group"
         >
-            {/* Image container: Completely removed on mobile using `hidden`, visible on desktop `md:block` */}
             <div
                 ref={wrapRef}
                 className="hidden md:block w-0 h-16 opacity-0 rounded-xl overflow-hidden shrink-0 pointer-events-none"
@@ -179,6 +177,7 @@ function MenuGridButton({ isOpen, onToggle, sizeClass }) {
             onMouseEnter={() => setIsGridHovered(true)}
             onMouseLeave={() => setIsGridHovered(false)}
             aria-expanded={isOpen}
+            aria-controls="full-screen-menu"
             aria-label={isOpen ? 'Close menu' : 'Open menu'}
             className={`grid grid-cols-3 gap-1 place-items-center rounded-xl transition-colors duration-300 active:scale-90 focus:outline-none border border-base-content/10 ${sizeClass} ${
                 isOpen ? 'bg-base-200' : 'bg-base-100'
@@ -357,9 +356,9 @@ export default function Header() {
             </header>
 
             <div
+                id="full-screen-menu"
                 ref={menuRef}
                 style={{ display: 'none' }}
-                aria-hidden={!isOpen}
                 className="fixed inset-0 z-40 flex-col justify-center items-start px-6 md:px-24 overflow-hidden w-full h-full"
             >
                 <div className="absolute inset-0 z-10 pointer-events-none flex flex-col w-full h-full">

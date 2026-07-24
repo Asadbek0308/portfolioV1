@@ -19,7 +19,7 @@ import ScrollToTop from './components/ScrollToTop';
 import CursorGrid from './animations/CursorGrid';
 
 // 2. Import your GreetingText preloader component
-import GreetingText from './animations/GreetingText'; // adjust path to where you saved it
+import GreetingText from './animations/GreetingText';
 
 // Register GSAP Plugin
 gsap.registerPlugin(ScrollTrigger);
@@ -58,14 +58,19 @@ const App = () => {
         <ErrorBoundary>
           <ScrollToTop />
           {/* <CursorGrid/> */}
-          <Routes>
-            <Route path='/' element={<Home />} />
-            <Route path='/animations' element={<Animations />} />
-            <Route path='/animations/:animationName' element={<AnimationDetail />} />
-            <Route path='/academics' element={<Academics />} />
-            <Route path='/work' element={<Work />} />
-            <Route path='*' element={<NotFound />} />
-          </Routes>
+          
+          {/* FIXED: Wrapped main content in <main> landmark tag */}
+          <main id="main-content">
+            <Routes>
+              <Route path='/' element={<Home />} />
+              <Route path='/animations' element={<Animations />} />
+              <Route path='/animations/:animationName' element={<AnimationDetail />} />
+              <Route path='/academics' element={<Academics />} />
+              <Route path='/work' element={<Work />} />
+              <Route path='*' element={<NotFound />} />
+            </Routes>
+          </main>
+          
         </ErrorBoundary>
         <Footer />
       </ThemeProvider>
