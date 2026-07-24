@@ -101,15 +101,15 @@ const Footer = () => {
 
               <Magnet>
                 <a
-                  href="mailto:hello@russellnumo.nl"
+                  href="mailto:"
                   className="hover:opacity-70 transition-opacity text-base-100 hover:text-base-100/80"
                 >
-                  hello@russellnumo.nl
+                  my@mail.de
                 </a>
               </Magnet>
               <Magnet>
                 <a
-                  href="tel:+999999999999"
+                  href="tel:"
                   className="opacity-70 font-bold hover:opacity-100 transition-opacity text-base-100/80 hover:text-base-100"
                 >
                   +998 99 999 99 99

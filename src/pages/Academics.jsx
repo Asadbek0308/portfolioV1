@@ -391,7 +391,7 @@ const Academics = () => {
             className="text-3xl sm:text-5xl md:text-6xl font-medium leading-tight tracking-tight"
           >
             Scores are a snapshot, not the whole picture — but they're proof that the same discipline
-            behind every animation shows up in the classroom too.
+            behind every animation shows up in the classroom too. 
           </p>
         </div>
       </section>

@@ -12,6 +12,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Footer from './components/Footer';
 import Animations from './pages/Animations';
+import AnimationDetail from './pages/AnimationDetail';
 import Academics from './pages/Academics';
 import Work from './pages/Work';
 import ScrollToTop from './components/ScrollToTop';
@@ -55,17 +56,18 @@ const App = () => {
 
         <Header />
         <ErrorBoundary>
-          <ScrollToTop/>
+          <ScrollToTop />
           {/* <CursorGrid/> */}
           <Routes>
             <Route path='/' element={<Home />} />
             <Route path='/animations' element={<Animations />} />
+            <Route path='/animations/:animationName' element={<AnimationDetail />} />
             <Route path='/academics' element={<Academics />} />
             <Route path='/work' element={<Work />} />
             <Route path='*' element={<NotFound />} />
           </Routes>
         </ErrorBoundary>
-        <Footer/>
+        <Footer />
       </ThemeProvider>
     </div>
   );
