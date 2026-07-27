@@ -1,11 +1,11 @@
-import React, { useState, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import React, { useState, useLayoutEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import gsap from 'gsap'
 import Flip from 'gsap/Flip'
 
 gsap.registerPlugin(Flip)
 
-// Helper: Format string to Title Case (e.g., "brand-identity" or "brandIdentity" -> "Brand Identity")
+// Helper: Format string to Title Case
 const formatTitle = (str) => {
   return str
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -21,7 +21,7 @@ const formatSlug = (str) => {
     .toLowerCase()
 }
 
-// Helper to create an inline SVG fallback for missing screenshots
+// Helper for fallback image
 const createPlaceholder = (title) => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
     <rect width="600" height="400" fill="#18181b"/>
@@ -30,16 +30,12 @@ const createPlaceholder = (title) => {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
 }
 
-// 1. Scan subfolder showcase components dynamically (e.g., '../animationShowcase/hover/ButtonGlow.jsx')
 const animationModules = import.meta.glob('../animationShowcase/**/*.jsx')
-
-// 2. Scan all local screenshots
 const screenshotModules = import.meta.glob(
   '../assets/screenshots/*.{png,jpg,jpeg,webp,avif}',
   { eager: true, import: 'default' }
 )
 
-// Map screenshots by slug for exact matching
 const SCREENSHOT_MAP = {}
 Object.keys(screenshotModules).forEach((path) => {
   const fileName = path.split('/').pop().split('.')[0]
@@ -47,16 +43,12 @@ Object.keys(screenshotModules).forEach((path) => {
   SCREENSHOT_MAP[slug] = screenshotModules[path]
 })
 
-// 3. Process items & categories dynamically based on folder structure
 const DYNAMIC_PROJECTS = []
 const categorySet = new Set()
 
 Object.keys(animationModules).forEach((path, index) => {
   const pathSegments = path.split('/')
-  
-  // Extract file name and folder category
   const fileName = pathSegments.pop().replace(/\.jsx$/, '')
-  // If placed directly in animationShowcase root, fallback to 'General'
   const rawCategory = pathSegments.length > 2 ? pathSegments.pop() : 'General'
   
   const category = formatTitle(rawCategory)
@@ -65,32 +57,23 @@ Object.keys(animationModules).forEach((path, index) => {
   
   categorySet.add(category)
 
-  const image = SCREENSHOT_MAP[slug] || createPlaceholder(title)
-
   DYNAMIC_PROJECTS.push({
     id: String(index + 1).padStart(2, '0'),
     title,
     slug,
     category,
-    image
+    image: SCREENSHOT_MAP[slug] || createPlaceholder(title)
   })
 })
 
-// Dynamically construct CATEGORIES header list
 const CATEGORIES = ['All Work', ...Array.from(categorySet)]
 
 const ProjectCard = React.memo(({ project, displayIndex, isSelected }) => {
   const badgeRef = useRef(null)
-  const xTo = useRef(null)
-  const yTo = useRef(null)
 
   useLayoutEffect(() => {
     if (!badgeRef.current) return
-
     gsap.set(badgeRef.current, { xPercent: -50, yPercent: -50 })
-
-    xTo.current = gsap.quickTo(badgeRef.current, 'x', { duration: 0.35, ease: 'power3.out' })
-    yTo.current = gsap.quickTo(badgeRef.current, 'y', { duration: 0.35, ease: 'power3.out' })
   }, [])
 
   const handleMouseEnter = useCallback((e) => {
@@ -111,15 +94,19 @@ const ProjectCard = React.memo(({ project, displayIndex, isSelected }) => {
   }, [isSelected])
 
   const handleMouseMove = useCallback((e) => {
-    if (!isSelected) return
+    if (!isSelected || !badgeRef.current) return
     const rect = e.currentTarget.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
-    if (xTo.current && yTo.current) {
-      xTo.current(x)
-      yTo.current(y)
-    }
+    // Smoothly animate to cursor position dynamically without quickTo
+    gsap.to(badgeRef.current, {
+      x,
+      y,
+      duration: 0.35,
+      ease: 'power3.out',
+      overwrite: 'auto'
+    })
   }, [isSelected])
 
   const handleMouseLeave = useCallback(() => {
@@ -191,12 +178,15 @@ const FilterProjects = () => {
   useLayoutEffect(() => {
     if (!flipStateRef.current) return
 
+    // Kill any active Flip tweens before running a new animation during rapid clicks
+    gsap.killTweensOf('.project-card')
+
     Flip.from(flipStateRef.current, {
       targets: '.project-card',
       duration: 0.8,
       ease: 'power3.inOut',
-      absolute: true,
       scale: true,
+      prune: true,
       onComplete: () => {
         flipStateRef.current = null
       }
@@ -208,13 +198,14 @@ const FilterProjects = () => {
 
     setActiveFilter(category)
 
+    flipStateRef.current = Flip.getState('.project-card')
+
     if (category === 'All Work') {
+      setProjects(DYNAMIC_PROJECTS)
       return
     }
 
-    flipStateRef.current = Flip.getState('.project-card')
-
-    const sorted = [...projects].sort((a, b) => {
+    const sorted = [...DYNAMIC_PROJECTS].sort((a, b) => {
       const aMatches = a.category === category
       const bMatches = b.category === category
       if (aMatches && !bMatches) return -1
@@ -223,7 +214,7 @@ const FilterProjects = () => {
     })
 
     setProjects(sorted)
-  }, [activeFilter, projects])
+  }, [activeFilter])
 
   return (
     <div className="min-h-screen bg-base-100 text-base-content px-8 py-16 font-sans">
