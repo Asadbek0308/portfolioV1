@@ -14,19 +14,19 @@ const MENU_ITEMS = [
     {
         text: 'home',
         imgUrl:
-            'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80',
+            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80',
         link: '/',
     },
     {
         text: 'work',
         imgUrl:
-            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+            'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=400&q=80',
         link: 'work',
     },
     {
         text: 'animations',
         imgUrl:
-            'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=400&q=80',
+            'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=400&q=80',
         link: 'animations',
     },
     {
@@ -179,9 +179,8 @@ function MenuGridButton({ isOpen, onToggle, sizeClass }) {
             aria-expanded={isOpen}
             aria-controls="full-screen-menu"
             aria-label={isOpen ? 'Close menu' : 'Open menu'}
-            className={`grid grid-cols-3 gap-1 place-items-center rounded-xl transition-colors duration-300 active:scale-90 focus:outline-none border border-base-content/10 ${sizeClass} ${
-                isOpen ? 'bg-base-200' : 'bg-base-100'
-            }`}
+            className={`grid grid-cols-3 gap-1 place-items-center rounded-xl transition-colors duration-300 active:scale-90 focus:outline-none border border-base-content/10 ${sizeClass} ${isOpen ? 'bg-base-200' : 'bg-base-100'
+                }`}
         >
             {ALL_DOTS.map((num) => (
                 <span key={num} data-index={num} className="grid-dot w-1.5 h-1.5 rounded-full block" />
