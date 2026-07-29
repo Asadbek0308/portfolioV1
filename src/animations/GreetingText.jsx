@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 
 const GREETINGS = [
@@ -12,19 +12,32 @@ const GREETINGS = [
 ];
 
 export default function GreetingText() {
+  const [shouldShow, setShouldShow] = useState(() => {
+    // Check if session storage exists in window context (SSR safety check)
+    if (typeof window !== "undefined") {
+      return !sessionStorage.getItem("hasSeenGreeting");
+    }
+    return true;
+  });
+
   const containerRef = useRef(null);
   const itemsRef = useRef([]);
 
   useEffect(() => {
-    // gsap.context handles scoping and automatic cleanup on unmount
+    // If the flag is already set, do not trigger animations
+    if (!shouldShow) return;
+
     const ctx = gsap.context(() => {
       const items = itemsRef.current.filter(Boolean);
       if (!items.length || !containerRef.current) return;
 
       const tl = gsap.timeline({
         onComplete: () => {
-          // Hide overlay & prevent blocking mouse/touch events after completion
+          // Mark as seen in session storage when animation finishes
+          sessionStorage.setItem("hasSeenGreeting", "true");
+          // Optionally unmount component state or hide overlay
           gsap.set(containerRef.current, { display: "none", pointerEvents: "none" });
+          setShouldShow(false);
         },
       });
 
@@ -65,8 +78,11 @@ export default function GreetingText() {
       });
     }, containerRef);
 
-    return () => ctx.revert(); // Reverts all GSAP animations and clears memory
-  }, []);
+    return () => ctx.revert();
+  }, [shouldShow]);
+
+  // Prevent rendering DOM element if user already saw it during this browser session
+  if (!shouldShow) return null;
 
   return (
     <section
