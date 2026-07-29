@@ -89,7 +89,7 @@ function HoverImageLink({ text, imgUrl, link, onClick }) {
         >
             <div
                 ref={wrapRef}
-                className="hidden md:block w-0 h-16 opacity-0 rounded-xl overflow-hidden shrink-0 pointer-events-none"
+                className="hidden md:block w-0 h-22 opacity-0 rounded-xl overflow-hidden shrink-0 pointer-events-none"
                 style={{ willChange: 'width, opacity, margin' }}
             >
                 <img
