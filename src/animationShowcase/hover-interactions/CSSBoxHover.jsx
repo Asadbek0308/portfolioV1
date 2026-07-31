@@ -72,7 +72,7 @@ export const CSSBox = forwardRef(
         >
           {/* Front Face */}
           <div
-            className="absolute inset-0 bg-accent-content flex items-center justify-center backface-hidden overflow-hidden"
+            className="absolute inset-0 flex items-center justify-center backface-hidden overflow-hidden"
             style={{
               transform: `translateZ(${halfDepth}px)`,
             }}
@@ -82,7 +82,7 @@ export const CSSBox = forwardRef(
 
           {/* Back Face */}
           <div
-            className="absolute inset-0 bg-accent-content flex items-center justify-center backface-hidden overflow-hidden"
+            className="absolute inset-0 flex items-center justify-center backface-hidden overflow-hidden"
             style={{
               transform: `rotateY(180deg) translateZ(${halfDepth}px)`,
             }}
@@ -92,7 +92,7 @@ export const CSSBox = forwardRef(
 
           {/* Right Face */}
           <div
-            className="absolute top-0 bottom-0 bg-accent-content flex items-center justify-center backface-hidden overflow-hidden"
+            className="absolute top-0 bottom-0 flex items-center justify-center backface-hidden overflow-hidden"
             style={{
               width: `${depth}px`,
               left: `calc(50% - ${halfDepth}px)`,
@@ -104,7 +104,7 @@ export const CSSBox = forwardRef(
 
           {/* Left Face */}
           <div
-            className="absolute top-0 bottom-0 bg-accent-content flex items-center justify-center backface-hidden overflow-hidden"
+            className="absolute top-0 bottom-0 flex items-center justify-center backface-hidden overflow-hidden"
             style={{
               width: `${depth}px`,
               left: `calc(50% - ${halfDepth}px)`,
@@ -116,7 +116,7 @@ export const CSSBox = forwardRef(
 
           {/* Top Face */}
           <div
-            className="absolute left-0 right-0 bg-accent-content flex items-center justify-center backface-hidden overflow-hidden"
+            className="absolute left-0 right-0 flex items-center justify-center backface-hidden overflow-hidden"
             style={{
               height: `${depth}px`,
               top: `calc(50% - ${halfDepth}px)`,
@@ -128,7 +128,7 @@ export const CSSBox = forwardRef(
 
           {/* Bottom Face */}
           <div
-            className="absolute left-0 right-0 bg-accent-content flex items-center justify-center backface-hidden overflow-hidden"
+            className="absolute left-0 right-0 flex items-center justify-center backface-hidden overflow-hidden"
             style={{
               height: `${depth}px`,
               top: `calc(50% - ${halfDepth}px)`,
