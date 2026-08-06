@@ -20,6 +20,7 @@
     "opentype.js": "^2.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-globe.gl": "^2.38.0",
     "react-router-dom": "^7.18.1",
     "tailwindcss": "^4.3.2",
     "three": "^0.185.1"
