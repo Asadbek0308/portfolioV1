@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback, memo } from "react";
 import Globe from "react-globe.gl";
 import * as THREE from "three";
 
@@ -7,6 +7,72 @@ const GEOJSON_URL =
 
 const DEFAULT_POV = { lat: 15, lng: 10, altitude: 2.4 };
 const ZOOM_ALTITUDE = 0.9;
+const AVG_CRUISE_KMH = 900; // rough commercial flight speed, for the duration estimate
+
+// common abbreviations that don't literally appear in the Natural Earth
+// NAME field, so a plain substring search would miss them
+const COUNTRY_ALIASES = {
+  usa: "united states",
+  us: "united states",
+  america: "united states",
+  uk: "united kingdom",
+  britain: "united kingdom",
+  uae: "united arab emirates",
+  drc: "congo",
+  car: "central african republic",
+  prc: "china",
+  roc: "taiwan",
+  ksa: "saudi arabia",
+  nz: "new zealand",
+  png: "papua new guinea",
+};
+
+let _geojsonCache = null;
+let _geojsonPromise = null;
+function loadCountriesGeoJSON() {
+  if (_geojsonCache) return Promise.resolve(_geojsonCache);
+  if (!_geojsonPromise) {
+    _geojsonPromise = fetch(GEOJSON_URL)
+      .then((r) => {
+        if (!r.ok) throw new Error("bad response");
+        return r.json();
+      })
+      .then((geo) => {
+        _geojsonCache = geo;
+        return geo;
+      })
+      .catch((err) => {
+        _geojsonPromise = null; // allow retry on next call
+        throw err;
+      });
+  }
+  return _geojsonPromise;
+}
+
+function isWebGLAvailable() {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(
+      window.WebGLRenderingContext &&
+      (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
 
 function formatNumber(n) {
   if (n === undefined || n === null || n < 0) return null;
@@ -14,6 +80,13 @@ function formatNumber(n) {
   if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
   if (n >= 1e3) return (n / 1e3).toFixed(0) + "K";
   return String(n);
+}
+
+function formatDuration(hours) {
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}h ${m}m`;
 }
 
 function countryId(f) {
@@ -30,6 +103,31 @@ function haversineKm(lat1, lng1, lat2, lng2) {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// true great-circle midpoint (not a naive lat/lng average, which drifts off
+// the sphere for points that are far apart)
+function greatCircleMidpoint(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
+  const φ1 = toRad(lat1),
+    λ1 = toRad(lng1);
+  const φ2 = toRad(lat2),
+    λ2 = toRad(lng2);
+  const Bx = Math.cos(φ2) * Math.cos(λ2 - λ1);
+  const By = Math.cos(φ2) * Math.sin(λ2 - λ1);
+  const φm = Math.atan2(Math.sin(φ1) + Math.sin(φ2), Math.sqrt((Math.cos(φ1) + Bx) ** 2 + By ** 2));
+  const λm = λ1 + Math.atan2(By, Math.cos(φ1) + Bx);
+  return { lat: toDeg(φm), lng: toDeg(λm) };
+}
+
+// point-of-view that frames both route endpoints: centers on the arc's
+// midpoint and pulls the camera back further the farther apart they are
+function routeFramingView(start, end) {
+  const { lat, lng } = greatCircleMidpoint(start.lat, start.lng, end.lat, end.lng);
+  const angularDistance = haversineKm(start.lat, start.lng, end.lat, end.lng) / 6371; // radians, 0..π
+  const altitude = Math.min(3.2, Math.max(0.9, 0.5 + angularDistance * 1.3));
+  return { lat, lng, altitude };
 }
 
 // normalizes any CSS color (hex, rgb, hsl, oklch — daisyUI v5 themes use
@@ -79,14 +177,32 @@ function useThemeColors() {
   );
 
   useEffect(() => {
-    const update = () => setColors(readThemeColors());
-    update();
-    const observer = new MutationObserver(update);
+    let frame = null;
+    const scheduleUpdate = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        setColors((prev) => {
+          const next = readThemeColors();
+          const same =
+            prev.base100 === next.base100 &&
+            prev.base300 === next.base300 &&
+            prev.baseContent === next.baseContent &&
+            prev.primary === next.primary;
+          return same ? prev : next;
+        });
+      });
+    };
+    scheduleUpdate();
+    const observer = new MutationObserver(scheduleUpdate);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme", "class"],
     });
-    return () => observer.disconnect();
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, []);
 
   return colors;
@@ -122,24 +238,69 @@ function countryCentroid(feature) {
   return { lat: latSum / best.length, lng: lngSum / best.length };
 }
 
-function SearchSelect({ label, options, value, onChange, placeholder, excludeId }) {
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100";
+
+const SearchSelect = memo(function SearchSelect({ label, options, value, onChange, placeholder, excludeId }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
   const inputRef = useRef(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return options
-      .filter((o) => o.id !== excludeId)
-      .filter((o) => !q || o.name.toLowerCase().includes(q))
+    const base = options.filter((o) => o.id !== excludeId);
+    if (!q) return base.slice(0, 50);
+    const aliasTarget = COUNTRY_ALIASES[q];
+    return base
+      .filter((o) => {
+        const name = o.name.toLowerCase();
+        return name.includes(q) || (aliasTarget && name.includes(aliasTarget));
+      })
       .slice(0, 50);
   }, [options, query, excludeId]);
+
+  useEffect(() => {
+    setHighlighted(0);
+  }, [filtered]);
+
+  const commit = (o) => {
+    onChange(o);
+    setQuery("");
+    setOpen(false);
+    inputRef.current?.blur();
+  };
+
+  const onKeyDown = (e) => {
+    if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+      setOpen(true);
+      return;
+    }
+    if (!open) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlighted((i) => Math.min(i + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlighted((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filtered[highlighted]) commit(filtered[highlighted]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      inputRef.current?.blur();
+    }
+  };
 
   return (
     <div className="relative flex-1 min-w-[130px] max-w-[220px]">
       <input
         ref={inputRef}
         type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-controls={`${label}-listbox`}
         value={open ? query : value?.name || ""}
         placeholder={placeholder}
         onFocus={() => {
@@ -147,27 +308,33 @@ function SearchSelect({ label, options, value, onChange, placeholder, excludeId 
           setOpen(true);
         }}
         onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={onKeyDown}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
-        className="w-full text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 text-base-content/80 shadow-sm focus:outline-none focus:border-base-content/40"
+        className={`w-full text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 text-base-content/80 shadow-sm focus:outline-none focus:border-base-content/40 ${FOCUS_RING}`}
       />
       <span className="absolute -top-4 left-1 text-[10px] uppercase tracking-wide text-base-content/40">
         {label}
       </span>
       {open && (
-        <div className="absolute z-10 mt-1 w-full max-h-52 overflow-y-auto bg-base-100 border border-base-300 rounded-lg shadow-lg">
+        <div
+          id={`${label}-listbox`}
+          role="listbox"
+          className="absolute z-10 mt-1 w-full max-h-52 overflow-y-auto bg-base-100 border border-base-300 rounded-lg shadow-lg"
+        >
           {filtered.length === 0 && (
             <div className="px-3 py-2 text-xs text-base-content/40 font-mono">no matches</div>
           )}
-          {filtered.map((o) => (
+          {filtered.map((o, i) => (
             <button
               key={o.id}
+              role="option"
+              aria-selected={i === highlighted}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                onChange(o);
-                setQuery("");
-                setOpen(false);
-              }}
-              className="block w-full text-left px-3 py-1.5 text-xs font-mono text-base-content/80 hover:bg-base-200"
+              onMouseEnter={() => setHighlighted(i)}
+              onClick={() => commit(o)}
+              className={`block w-full text-left px-3 py-1.5 text-xs font-mono text-base-content/80 ${
+                i === highlighted ? "bg-base-200" : "hover:bg-base-200"
+              }`}
             >
               {o.name}
             </button>
@@ -176,7 +343,7 @@ function SearchSelect({ label, options, value, onChange, placeholder, excludeId 
       )}
     </div>
   );
-}
+});
 
 export default function InteractiveEarthGlobe() {
   const wrapRef = useRef(null);
@@ -185,28 +352,38 @@ export default function InteractiveEarthGlobe() {
   const [countries, setCountries] = useState([]);
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [selected, setSelected] = useState(null);
-  const [autoSpin, setAutoSpin] = useState(true);
+  const [hovered, setHovered] = useState(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [autoSpin, setAutoSpin] = useState(() => !prefersReducedMotion);
   const [startCountry, setStartCountry] = useState(null);
   const [endCountry, setEndCountry] = useState(null);
   const theme = useThemeColors();
+  const webglSupported = useMemo(() => (typeof window !== "undefined" ? isWebGLAvailable() : true), []);
+  const flyMs = prefersReducedMotion ? 0 : 1000;
 
-  // keep the globe sized to its container
+  // keep the globe sized to its container — coalesced to one update per
+  // animation frame instead of firing on every intermediate resize tick
   useEffect(() => {
     const el = wrapRef.current;
+    let frame = null;
     const ro = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect;
-      setSize({ width, height });
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const { width, height } = entries[0].contentRect;
+        setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+      });
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      ro.disconnect();
+    };
   }, []);
 
-  useEffect(() => {
-    fetch(GEOJSON_URL)
-      .then((r) => {
-        if (!r.ok) throw new Error("bad response");
-        return r.json();
-      })
+  // geojson is fetched once per page load and reused across mounts/remounts
+  const fetchCountries = useCallback(() => {
+    setStatus("loading");
+    loadCountriesGeoJSON()
       .then((geo) => {
         setCountries(geo.features);
         setStatus("ready");
@@ -215,7 +392,46 @@ export default function InteractiveEarthGlobe() {
   }, []);
 
   useEffect(() => {
+    if (webglSupported) fetchCountries();
+  }, [webglSupported, fetchCountries]);
+
+  useEffect(() => {
     if (globeRef.current) globeRef.current.pointOfView(DEFAULT_POV, 0);
+  }, []);
+
+  // cap device pixel ratio — rendering at full 3x retina resolution for a
+  // full-bleed WebGL scene is one of the biggest perf costs on mobile/high-DPI
+  useEffect(() => {
+    const renderer = globeRef.current?.renderer?.();
+    if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  }, [size]);
+
+  // pause the render loop entirely when the globe is off-screen or the tab
+  // is backgrounded — pauseAnimation cancels the internal requestAnimationFrame
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    let visible = true;
+    const applyState = () => {
+      const g = globeRef.current;
+      if (!g) return;
+      const shouldRun = visible && document.visibilityState === "visible";
+      if (shouldRun) g.resumeAnimation();
+      else g.pauseAnimation();
+    };
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry.isIntersecting;
+        applyState();
+      },
+      { threshold: 0.01 }
+    );
+    io.observe(el);
+    document.addEventListener("visibilitychange", applyState);
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", applyState);
+    };
   }, []);
 
   useEffect(() => {
@@ -227,6 +443,12 @@ export default function InteractiveEarthGlobe() {
     controls.enableDamping = true; // lets the spin coast after you let go
     controls.dampingFactor = 0.08; // lower = longer coast, higher = stops sooner
   }, [autoSpin, size]);
+
+  // lightweight cursor feedback on hover — set imperatively so hovering
+  // doesn't trigger a re-render just to change a CSS cursor
+  useEffect(() => {
+    if (wrapRef.current) wrapRef.current.style.cursor = hovered ? "pointer" : "grab";
+  }, [hovered]);
 
   const countryOptions = useMemo(
     () =>
@@ -271,6 +493,13 @@ export default function InteractiveEarthGlobe() {
     setEndCountry(startCountry);
   }, [startCountry, endCountry]);
 
+  // center the viewport on the arc's midpoint once both endpoints are picked
+  useEffect(() => {
+    if (!startCountry || !endCountry) return;
+    setAutoSpin(false);
+    globeRef.current?.pointOfView(routeFramingView(startCountry, endCountry), flyMs);
+  }, [startCountry, endCountry, flyMs]);
+
   // flat, unshaded — color follows the site's theme (see effect below)
   const globeMaterial = useMemo(
     () =>
@@ -287,8 +516,8 @@ export default function InteractiveEarthGlobe() {
 
   const resetView = useCallback(() => {
     setSelected(null);
-    globeRef.current?.pointOfView(DEFAULT_POV, 1000);
-  }, []);
+    globeRef.current?.pointOfView(DEFAULT_POV, flyMs);
+  }, [flyMs]);
 
   const handlePolygonClick = useCallback(
     (feature, event, { lat, lng }) => {
@@ -299,10 +528,37 @@ export default function InteractiveEarthGlobe() {
       }
       setAutoSpin(false);
       setSelected(feature);
-      globeRef.current?.pointOfView({ lat, lng, altitude: ZOOM_ALTITUDE }, 1000);
+      globeRef.current?.pointOfView({ lat, lng, altitude: ZOOM_ALTITUDE }, flyMs);
     },
-    [selected, resetView]
+    [selected, resetView, flyMs]
   );
+
+  const handlePolygonHover = useCallback((feature) => {
+    setHovered(feature || null);
+  }, []);
+
+  // memoized so identity only changes when the values they depend on
+  // actually change, not on every render (e.g. a resize-triggered one)
+  const polygonAltitude = useCallback((d) => (selected === d ? 0.015 : 0.006), [selected]);
+  const polygonCapColor = useCallback(
+    (d) => (selected === d ? toRgba(theme.primary, 0.14) : theme.base100),
+    [selected, theme.primary, theme.base100]
+  );
+  const polygonSideColor = useCallback(() => toRgba(theme.baseContent, 0.05), [theme.baseContent]);
+  const polygonStrokeColor = useCallback(
+    (d) => {
+      if (selected === d) return theme.primary;
+      if (hovered === d) return toRgba(theme.primary, 0.55);
+      return theme.baseContent;
+    },
+    [selected, hovered, theme.primary, theme.baseContent]
+  );
+  const pointColorFn = useCallback(
+    (d) => (d.role === "start" ? theme.baseContent : theme.primary),
+    [theme.baseContent, theme.primary]
+  );
+  const pointLabelFn = useCallback((d) => d.name, []);
+  const arcColorFn = useCallback(() => [theme.baseContent, theme.primary], [theme.baseContent, theme.primary]);
 
   const selectedInfo = selected
     ? {
@@ -316,122 +572,146 @@ export default function InteractiveEarthGlobe() {
       }
     : null;
 
+  const flightHours = routeDistanceKm !== null ? routeDistanceKm / AVG_CRUISE_KMH : null;
+
   return (
     <div
       ref={wrapRef}
       className="relative w-full h-full min-h-[420px] sm:min-h-[520px] bg-base-100 rounded-2xl overflow-hidden select-none"
     >
-      <Globe
-        ref={globeRef}
-        width={size.width}
-        height={size.height}
-        backgroundColor="rgba(0,0,0,0)"
-        globeMaterial={globeMaterial}
-        showAtmosphere={false}
-        showGraticules
-        polygonsData={countries}
-        polygonAltitude={(d) => (selected === d ? 0.015 : 0.006)}
-        polygonCapColor={(d) => (selected === d ? toRgba(theme.primary, 0.14) : theme.base100)}
-        polygonSideColor={() => toRgba(theme.baseContent, 0.05)}
-        polygonStrokeColor={(d) => (selected === d ? theme.primary : theme.baseContent)}
-        polygonsTransitionDuration={300}
-        onPolygonClick={handlePolygonClick}
-        pointsData={routePoints}
-        pointLat="lat"
-        pointLng="lng"
-        pointColor={(d) => (d.role === "start" ? theme.baseContent : theme.primary)}
-        pointRadius={0.4}
-        pointAltitude={0.01}
-        pointLabel={(d) => d.name}
-        arcsData={routeArcs}
-        arcStartLat="startLat"
-        arcStartLng="startLng"
-        arcEndLat="endLat"
-        arcEndLng="endLng"
-        arcColor={() => [theme.baseContent, theme.primary]}
-        arcStroke={0.5}
-        arcDashLength={0.4}
-        arcDashGap={0.15}
-        arcDashAnimateTime={2000}
-        arcAltitude={0.25}
-      />
+      {!webglSupported ? (
+        <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+          <p className="text-sm text-base-content/60 font-mono max-w-xs">
+            Your browser doesn't support WebGL, so the interactive globe can't render here.
+          </p>
+        </div>
+      ) : (
+        <Globe
+          ref={globeRef}
+          width={size.width}
+          height={size.height}
+          backgroundColor="rgba(0,0,0,0)"
+          rendererConfig={{ antialias: true, powerPreference: "high-performance", alpha: true }}
+          globeMaterial={globeMaterial}
+          showAtmosphere={false}
+          showGraticules
+          polygonsData={countries}
+          polygonCapCurvatureResolution={8}
+          polygonAltitude={polygonAltitude}
+          polygonCapColor={polygonCapColor}
+          polygonSideColor={polygonSideColor}
+          polygonStrokeColor={polygonStrokeColor}
+          polygonsTransitionDuration={300}
+          onPolygonClick={handlePolygonClick}
+          onPolygonHover={handlePolygonHover}
+          pointsData={routePoints}
+          pointLat="lat"
+          pointLng="lng"
+          pointColor={pointColorFn}
+          pointRadius={0.4}
+          pointAltitude={0.01}
+          pointLabel={pointLabelFn}
+          arcsData={routeArcs}
+          arcStartLat="startLat"
+          arcStartLng="startLng"
+          arcEndLat="endLat"
+          arcEndLng="endLng"
+          arcColor={arcColorFn}
+          arcStroke={0.5}
+          arcDashLength={0.4}
+          arcDashGap={0.15}
+          arcDashAnimateTime={prefersReducedMotion ? 0 : 2000}
+          arcAltitudeAutoScale={0.4}
+        />
+      )}
 
-      {status === "loading" && (
+      {status === "loading" && webglSupported && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-base-content/40 text-sm tracking-wide font-mono animate-pulse">
             loading country borders…
           </span>
         </div>
       )}
-      {status === "error" && (
-        <div className="absolute top-4 left-4 text-xs text-warning font-mono bg-warning/10 border border-warning/30 px-3 py-1.5 rounded-lg">
-          couldn't load country data — showing globe only
+      {status === "error" && webglSupported && (
+        <div className="absolute top-4 left-4 flex items-center gap-2 text-xs text-warning font-mono bg-warning/10 border border-warning/30 px-3 py-1.5 rounded-lg">
+          <span>couldn't load country data</span>
+          <button
+            onClick={fetchCountries}
+            className={`underline hover:no-underline ${FOCUS_RING}`}
+          >
+            retry
+          </button>
         </div>
       )}
 
-      <div className="absolute top-4 left-4 right-4 flex flex-col gap-2 z-10">
-        <div className="flex flex-wrap items-start gap-2">
-          <button
-            onClick={() => setAutoSpin((v) => !v)}
-            className="text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 hover:bg-base-200 text-base-content/80 shadow-sm transition-colors"
-          >
-            {autoSpin ? "⏸ pause spin" : "▶ resume spin"}
-          </button>
-          {selected && (
+      {webglSupported && (
+        <div className="absolute top-4 left-4 right-4 flex flex-col gap-2 z-10">
+          <div className="flex flex-wrap items-start gap-2">
             <button
-              onClick={resetView}
-              className="text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 hover:bg-base-200 text-base-content/80 shadow-sm transition-colors"
+              onClick={() => setAutoSpin((v) => !v)}
+              className={`text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 hover:bg-base-200 text-base-content/80 shadow-sm transition-colors motion-reduce:transition-none ${FOCUS_RING}`}
             >
-              ↺ reset view
+              {autoSpin ? "⏸ pause spin" : "▶ resume spin"}
             </button>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-end gap-2 mt-2">
-          <SearchSelect
-            label="From"
-            options={countryOptions}
-            value={startCountry}
-            onChange={setStartCountry}
-            placeholder="Start country…"
-            excludeId={endCountry?.id}
-          />
-          <SearchSelect
-            label="To"
-            options={countryOptions}
-            value={endCountry}
-            onChange={setEndCountry}
-            placeholder="Destination…"
-            excludeId={startCountry?.id}
-          />
-          {(startCountry || endCountry) && (
-            <div className="flex items-center gap-1">
+            {selected && (
               <button
-                onClick={swapRoute}
-                title="Swap"
-                className="text-xs px-2 py-1.5 rounded-lg bg-base-100 border border-base-300 hover:bg-base-200 text-base-content/80 shadow-sm transition-colors"
+                onClick={resetView}
+                className={`text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 hover:bg-base-200 text-base-content/80 shadow-sm transition-colors motion-reduce:transition-none ${FOCUS_RING}`}
               >
-                ⇄
+                ↺ reset view
               </button>
-              <button
-                onClick={clearRoute}
-                title="Clear route"
-                className="text-xs px-2 py-1.5 rounded-lg bg-base-100 border border-base-300 hover:bg-base-200 text-base-content/80 shadow-sm transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-          {routeDistanceKm !== null && (
-            <div className="text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 text-base-content/80 shadow-sm whitespace-nowrap">
-              {Math.round(routeDistanceKm).toLocaleString()} km
-              <span className="text-base-content/40"> · {Math.round(routeDistanceKm * 0.621371).toLocaleString()} mi</span>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
+          </div>
 
-      {!selected && status === "ready" && (
+          <div className="flex flex-wrap items-end gap-2 mt-2">
+            <SearchSelect
+              label="From"
+              options={countryOptions}
+              value={startCountry}
+              onChange={setStartCountry}
+              placeholder="Start country…"
+              excludeId={endCountry?.id}
+            />
+            <SearchSelect
+              label="To"
+              options={countryOptions}
+              value={endCountry}
+              onChange={setEndCountry}
+              placeholder="Destination…"
+              excludeId={startCountry?.id}
+            />
+            {(startCountry || endCountry) && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={swapRoute}
+                  title="Swap"
+                  className={`text-xs px-2 py-1.5 rounded-lg bg-base-100 border border-base-300 hover:bg-base-200 text-base-content/80 shadow-sm transition-colors motion-reduce:transition-none ${FOCUS_RING}`}
+                >
+                  ⇄
+                </button>
+                <button
+                  onClick={clearRoute}
+                  title="Clear route"
+                  className={`text-xs px-2 py-1.5 rounded-lg bg-base-100 border border-base-300 hover:bg-base-200 text-base-content/80 shadow-sm transition-colors motion-reduce:transition-none ${FOCUS_RING}`}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            {routeDistanceKm !== null && (
+              <div className="text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 text-base-content/80 shadow-sm whitespace-nowrap">
+                {Math.round(routeDistanceKm).toLocaleString()} km
+                <span className="text-base-content/40">
+                  {" "}
+                  · {Math.round(routeDistanceKm * 0.621371).toLocaleString()} mi · ~{formatDuration(flightHours)} flight
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!selected && status === "ready" && webglSupported && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[11px] text-base-content/40 font-mono">
           drag to rotate · click a country to zoom in · click again to zoom out
         </div>
@@ -443,7 +723,7 @@ export default function InteractiveEarthGlobe() {
             <h3 className="text-base font-semibold leading-tight pr-2">{selectedInfo.name}</h3>
             <button
               onClick={resetView}
-              className="text-base-content/40 hover:text-base-content shrink-0"
+              className={`text-base-content/40 hover:text-base-content shrink-0 rounded ${FOCUS_RING}`}
               aria-label="Close"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
