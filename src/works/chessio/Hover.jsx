@@ -1,219 +1,82 @@
-// Work page hover effect for Chessio: the card turns into a chessboard and the
-// cursor becomes a knight. The square under it lights up and glowing dots mark
-// every square the knight could jump to, following the cursor as it moves.
-// Everything is drawn on one canvas; the loop only runs while hovered or
-// while fading out, then stops completely.
-import { useEffect, useRef } from 'react'
+// Work page hover effect for Chessio: ASCII chess — chess symbols and moves in algebraic notation
+// (e4, Nf3, O-O, Qxf7#…) drift up the card in amber monospace and fade out,
+// in the same spirit as Philosophify's ASCII fire.
+import { makeCanvasHover, rgba, SYMBOL_FONT } from '../../lib/canvasHover'
 
-const FILES = 8 // the card is always exactly 8 squares wide, like a real board
-const KNIGHT_JUMPS = [
-  [1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2],
+const SYMBOLS = ['♞', '♛', '♜', '♝', '♟', '♚', '♘', '♕', '♖', '♗']
+const MOVES = ['e4', 'Nf3', 'O-O', 'Qxf7#', 'exd5', 'Bb5+', 'c4', 'Nxe5', 'O-O-O', 'Rxe8+', 'g4!?', 'Kh1', 'd4', 'Bxh7+', '1-0', '½-½']
+const SPAWN_PER_SECOND = 16
+const MAX_PARTICLES = 90
+
+const PALETTE = [
+  [255, 214, 120],
+  [246, 190, 80],
+  [235, 150, 60],
+  [255, 240, 200],
 ]
-const LIGHT = [240, 217, 181] // Chessio's Classic Wood light square
-const DARK = [181, 136, 99] //   ...and dark square
-const DOT = [246, 225, 160]
-const HIGHLIGHT = [246, 246, 105] // last-move yellow, like the app
-const FOLLOW = 0.25 // how quickly the knight glides to the cursor (0–1 per frame)
-const FADE = 0.12 // how quickly board, dots and highlight fade in/out (0–1 per frame)
 
-const rgba = ([r, g, b], a) => `rgba(${r},${g},${b},${a})`
-const approach = (value, target, rate) => {
-  const next = value + (target - value) * rate
-  return Math.abs(next - target) < 0.005 ? target : next
+function spawn(s) {
+  const symbol = Math.random() < 0.55
+  return {
+    text: symbol
+      ? SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]
+      : MOVES[Math.floor(Math.random() * MOVES.length)],
+    symbol,
+    x: Math.random() * s.width,
+    y: s.height + 20,
+    speed: 35 + Math.random() * 55, // px per second upwards
+    size: symbol ? 16 + Math.random() * 22 : 11 + Math.random() * 6,
+    sway: Math.random() * Math.PI * 2,
+    color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+  }
 }
 
-export default function ChessioHover({ active }) {
-  const rootRef = useRef(null)
-  const canvasRef = useRef(null)
-  const activeRef = useRef(active)
-  const wakeRef = useRef(null)
+export default makeCanvasHover({
+  fadeOut: 0.07,
+  staticTime: 0,
+  createState: () => ({ particles: [], debt: 0, warm: false }),
+  render(ctx, s, dt, on) {
+    const c = s.custom
+    const a = s.amount
 
-  useEffect(() => {
-    const root = rootRef.current
-    const canvas = canvasRef.current
-    const card = root?.parentElement
-    if (!canvas || !card) return
-    const ctx = canvas.getContext('2d')
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    let width = 0
-    let height = 0
-    let size = 0 // square size in px
-    let rows = 0
-    let raf = null
-
-    // Animated state (all plain numbers: no React re-renders)
-    const pointer = { x: 0, y: 0, known: false }
-    const knight = { x: 0, y: 0 }
-    let board = 0 // 0..1 board opacity
-    const dots = new Map() // "col,row" -> 0..1 visibility
-    let square = null // [col, row] under the knight
-
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect()
-      width = rect.width
-      height = rect.height
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      canvas.width = Math.max(1, Math.round(width * dpr))
-      canvas.height = Math.max(1, Math.round(height * dpr))
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      size = width / FILES
-      rows = Math.max(1, Math.ceil(height / size))
+    // Start with the card already partly filled, so the effect is visible at once
+    if (!c.warm) {
+      c.warm = true
+      for (let i = 0; i < 40; i++) {
+        const p = spawn(s)
+        p.y = s.height * (0.35 + Math.random() * 0.65)
+        c.particles.push(p)
+      }
+    }
+    if (on) {
+      c.debt += dt * SPAWN_PER_SECOND
+      while (c.debt >= 1 && c.particles.length < MAX_PARTICLES) {
+        c.particles.push(spawn(s))
+        c.debt -= 1
+      }
     }
 
-    const onPointerMove = (e) => {
-      const rect = card.getBoundingClientRect()
-      pointer.x = e.clientX - rect.left
-      pointer.y = e.clientY - rect.top
-      if (!pointer.known) {
-        // first sighting: place the knight right under the cursor, no glide
-        knight.x = pointer.x
-        knight.y = pointer.y
-        pointer.known = true
-      }
-      wake()
-    }
+    const wash = ctx.createLinearGradient(0, s.height, 0, 0)
+    wash.addColorStop(0, `rgba(8,6,4,${0.88 * a})`)
+    wash.addColorStop(1, `rgba(8,6,4,${0.45 * a})`)
+    ctx.fillStyle = wash
+    ctx.fillRect(0, 0, s.width, s.height)
 
-    const draw = () => {
-      ctx.clearRect(0, 0, width, height)
-      if (board <= 0) return
-
-      // Board squares + a dark wash so the board reads over the card
-      ctx.fillStyle = `rgba(10,10,10,${0.55 * board})`
-      ctx.fillRect(0, 0, width, height)
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < FILES; c++) {
-          ctx.fillStyle = rgba((c + r) % 2 === 0 ? LIGHT : DARK, 0.22 * board)
-          ctx.fillRect(c * size, r * size, size, size)
-        }
-      }
-
-      // Square under the knight
-      if (square) {
-        ctx.fillStyle = rgba(HIGHLIGHT, 0.35 * board)
-        ctx.fillRect(square[0] * size, square[1] * size, size, size)
-      }
-
-      // Legal knight moves: glowing dots that grow/shrink as they appear/leave
-      for (const [key, amount] of dots) {
-        if (amount <= 0) continue
-        const [c, r] = key.split(',').map(Number)
-        const cx = (c + 0.5) * size
-        const cy = (r + 0.5) * size
-        const radius = size * 0.16 * amount
-        const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 3)
-        glow.addColorStop(0, rgba(DOT, 0.45 * amount * board))
-        glow.addColorStop(1, rgba(DOT, 0))
-        ctx.fillStyle = glow
-        ctx.fillRect(cx - radius * 3, cy - radius * 3, radius * 6, radius * 6)
-        ctx.beginPath()
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-        ctx.fillStyle = rgba(DOT, 0.95 * amount * board)
-        ctx.fill()
-      }
-
-      // The knight itself, following the cursor
-      ctx.save()
-      ctx.globalAlpha = board
-      ctx.font = `${Math.round(size * 0.9)}px "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.shadowColor = 'rgba(0,0,0,0.6)'
-      ctx.shadowBlur = 12
-      ctx.shadowOffsetY = 4
-      ctx.lineWidth = 3
-      ctx.strokeStyle = '#111'
-      ctx.strokeText('♞', knight.x, knight.y)
-      ctx.shadowColor = 'transparent'
-      ctx.fillStyle = '#fafafa'
-      ctx.fillText('♞', knight.x, knight.y)
-      ctx.restore()
-    }
-
-    const frame = () => {
-      const on = activeRef.current
-      const rate = reduceMotion ? 1 : FADE
-
-      // Keyboard focus (no pointer yet): park the knight in the middle
-      if (on && !pointer.known) {
-        pointer.x = knight.x = width / 2
-        pointer.y = knight.y = height / 2
-        pointer.known = true
-      }
-
-      board = approach(board, on ? 1 : 0, rate)
-      knight.x = reduceMotion ? pointer.x : approach(knight.x, pointer.x, FOLLOW)
-      knight.y = reduceMotion ? pointer.y : approach(knight.y, pointer.y, FOLLOW)
-
-      const col = Math.min(FILES - 1, Math.max(0, Math.floor(knight.x / size)))
-      const row = Math.min(rows - 1, Math.max(0, Math.floor(knight.y / size)))
-      square = [col, row]
-
-      // Target set of dots for the current square
-      const targets = new Set()
-      if (on) {
-        for (const [dc, dr] of KNIGHT_JUMPS) {
-          const c = col + dc
-          const r = row + dr
-          if (c >= 0 && c < FILES && r >= 0 && r < rows) targets.add(`${c},${r}`)
-        }
-      }
-      for (const key of targets) if (!dots.has(key)) dots.set(key, 0)
-      let dotsMoving = false
-      for (const [key, amount] of dots) {
-        const next = approach(amount, targets.has(key) ? 1 : 0, reduceMotion ? 1 : 0.22)
-        if (next === 0 && !targets.has(key)) dots.delete(key)
-        else dots.set(key, next)
-        if (next !== (targets.has(key) ? 1 : 0)) dotsMoving = true
-      }
-
-      draw()
-
-      const settled =
-        board === (on ? 1 : 0) && knight.x === pointer.x && knight.y === pointer.y && !dotsMoving
-      // Nothing left to animate: stop until the pointer moves or the hover changes
-      if (settled) {
-        raf = null
-        if (!on) {
-          pointer.known = false
-          dots.clear()
-        }
-        return
-      }
-      raf = requestAnimationFrame(frame)
-    }
-
-    const wake = () => {
-      if (!raf) raf = requestAnimationFrame(frame)
-    }
-    // Called when the hover changes: the knight replaces the mouse pointer on the card
-    wakeRef.current = (on) => {
-      card.style.cursor = on ? 'none' : ''
-      wake()
-    }
-
-    resize()
-    const ro = new ResizeObserver(resize)
-    ro.observe(canvas)
-    card.addEventListener('pointermove', onPointerMove)
-
-    return () => {
-      if (raf) cancelAnimationFrame(raf)
-      ro.disconnect()
-      card.removeEventListener('pointermove', onPointerMove)
-      card.style.cursor = ''
-      wakeRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    activeRef.current = active
-    wakeRef.current?.(active)
-  }, [active])
-
-  return (
-    <div ref={rootRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-20">
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
-    </div>
-  )
-}
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    c.particles = c.particles.filter((p) => {
+      p.y -= p.speed * dt
+      p.sway += dt * 1.6
+      const height = 1 - p.y / s.height // 0 at the bottom, 1 at the top
+      const life = Math.max(0, 1 - Math.max(0, height - 0.35) / 0.5) // fade in the upper half
+      if (life <= 0 || p.y < -30) return false
+      const x = p.x + Math.sin(p.sway) * 8
+      ctx.font = p.symbol
+        ? `${Math.round(p.size)}px ${SYMBOL_FONT}`
+        : `700 ${Math.round(p.size)}px ui-monospace, Menlo, Consolas, monospace`
+      ctx.fillStyle = rgba(p.color, life * a)
+      ctx.fillText(p.text, x, p.y)
+      return true
+    })
+  },
+})

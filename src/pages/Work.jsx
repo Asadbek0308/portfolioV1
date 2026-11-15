@@ -4,9 +4,8 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
 import { Link } from 'react-router-dom'
 import InfiniteText from '../animations/InfiniteText'
-import { WORKS, WORKS_BY_SLUG } from '../lib/works'
+import { WORKS } from '../lib/works'
 import { workPlaceholders } from '../lib/placeholders'
-import { HOVER_OPTIONS } from '../lib/hoverPreview' // TEMPORARY, see CARDS below
 
 gsap.registerPlugin(ScrollTrigger, SplitText)
 
@@ -44,28 +43,8 @@ const EXPERIENCE = [
   },
 ]
 
-// TEMPORARY: while hover options are being compared, the placeholder cards are
-// replaced by one card per option (see src/lib/hoverPreview.js). Delete this
-// block (and the import) once an option is chosen.
-const PLACEHOLDER_POOL = workPlaceholders(0)
-const PREVIEW_CARDS = HOVER_OPTIONS.map((option, i) => {
-  const project = WORKS_BY_SLUG[option.slug]
-  const name = project?.title ?? option.slug
-  return {
-    ...PLACEHOLDER_POOL[i % PLACEHOLDER_POOL.length],
-    // show the effect over the real project's cover
-    ...(project ? { cover: project.cover, coverAlt: project.coverAlt } : {}),
-    id: `hover-option-${option.slug}-${option.number}`,
-    type: `${name} · hover option ${option.number}`,
-    title: option.label,
-    summary: option.summary,
-    badge: `${name} ${option.number}`,
-    Hover: option.Hover,
-  }
-})
-
 // Real projects first, then placeholders for the remaining slots
-const CARDS = [...WORKS, ...(PREVIEW_CARDS.length ? PREVIEW_CARDS : workPlaceholders(WORKS.length))]
+const CARDS = [...WORKS, ...workPlaceholders(WORKS.length)]
 
 const StackTags = ({ stack }) => (
   <div className="flex flex-wrap gap-2 pt-2">
@@ -98,7 +77,7 @@ function ProjectCard({ project, onMove, onLeave }) {
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
         <span className="absolute top-4 right-4 z-10 badge badge-neutral badge-sm uppercase tracking-wide font-semibold">
-          {isReal ? project.year : project.badge || 'Case study coming soon'}
+          {isReal ? project.year : 'Case study coming soon'}
         </span>
       </div>
 
