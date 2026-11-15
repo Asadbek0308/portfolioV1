@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 
 const lerp = (start, end, amt) => (1 - amt) * start + amt * end
 

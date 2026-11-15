@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { gsap } from 'gsap';
 import { InertiaPlugin } from 'gsap/InertiaPlugin';
 import { Draggable } from 'gsap/Draggable';
@@ -29,6 +29,7 @@ const OrbitalTextHero = ({
 
   useEffect(() => {
     if (!containerRef.current || !stageRef.current || !ringTiltRef.current || !ringSpinRef.current) return;
+    const stage = stageRef.current;
 
     gsap.set(containerRef.current, { perspective: 1200 });
 
@@ -100,7 +101,7 @@ const OrbitalTextHero = ({
     return () => {
       orbitAnimation.kill();
       if (dragInstance[0]) dragInstance[0].kill();
-      InertiaPlugin.unTrack(stageRef.current);
+      InertiaPlugin.untrack(stage);
     };
   }, [maxTilt]);
 

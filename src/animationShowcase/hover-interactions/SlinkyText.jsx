@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { gsap } from "gsap";
 
 // --- CUSTOMIZATION TOOLS (Manipulate these to tweak the effect) ---
@@ -18,20 +18,12 @@ export default function SlinkyText() {
   const containerRef = useRef(null);
   const textRefs = useRef([]);
   
-  // Clear refs array on re-renders
-  textRefs.current = [];
-
-  const addToRefs = (el) => {
-    if (el && !textRefs.current.includes(el)) {
-      textRefs.current.push(el);
-    }
-  };
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container || textRefs.current.length === 0) return;
 
-    const layers = textRefs.current;
+    const layers = textRefs.current.filter(Boolean);
 
     const handleMouseMove = (e) => {
       const rect = container.getBoundingClientRect();
@@ -118,7 +110,9 @@ export default function SlinkyText() {
           return (
             <div
               key={index}
-              ref={addToRefs}
+              ref={(el) => {
+                textRefs.current[index] = el;
+              }}
               className={`grid-in-[1/1] will-change-transform ${
                 isTopLayer 
                   ? "text-[#4ADE80]" // Top leader layer: Solid Green

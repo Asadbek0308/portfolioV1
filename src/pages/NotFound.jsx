@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
-import { useTheme } from '../context/ThemeContext'; // Ensure this path matches your context file
+import { Link } from 'react-router-dom';
+import { useTheme } from '../context/theme';
 
 export default function NotFound() {
   const { theme } = useTheme();
@@ -9,65 +10,59 @@ export default function NotFound() {
   const numberRefs = useRef([]);
   const textRef = useRef(null);
 
-  // Clear previous element assignments on render
-  numberRefs.current = [];
-
   useEffect(() => {
     const container = containerRef.current;
     const spotlight = spotlightRef.current;
     if (!container || !spotlight) return;
 
-    // Set initial custom mouse coordinates
-    gsap.set(spotlight, { xPercent: -50, yPercent: -50 });
+    const ctx = gsap.context(() => {
+      const numbers = numberRefs.current.filter(Boolean);
+      gsap.set(spotlight, { xPercent: -50, yPercent: -50 });
 
-    // 1. Mouse Move Spotlight tracking
+      // Reveal content, then let each digit float on its own
+      gsap
+        .timeline()
+        .fromTo(
+          numbers,
+          { y: 100, opacity: 0, scale: 0.5 },
+          { y: 0, opacity: 1, scale: 1, duration: 1, ease: 'back.out(1.7)', stagger: 0.15 }
+        )
+        .fromTo(
+          textRef.current?.children || [],
+          { y: 30, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', stagger: 0.1 },
+          '-=0.4'
+        )
+        .add(() => {
+          numbers.forEach((num, index) => {
+            gsap.to(num, {
+              y: 'random(-15, 15)',
+              x: 'random(-10, 10)',
+              rotation: 'random(-8, 8)',
+              duration: 'random(2, 3.5)',
+              repeat: -1,
+              yoyo: true,
+              ease: 'sine.inOut',
+              delay: index * 0.2,
+            });
+          });
+        });
+    }, container);
+
+    // Spotlight follows the mouse
+    const moveX = gsap.quickTo(spotlight, 'x', { duration: 0.4, ease: 'power2.out' });
+    const moveY = gsap.quickTo(spotlight, 'y', { duration: 0.4, ease: 'power2.out' });
     const handleMouseMove = (e) => {
       const rect = container.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      gsap.to(spotlight, {
-        x,
-        y,
-        duration: 0.4,
-        ease: 'power2.out',
-      });
+      moveX(e.clientX - rect.left);
+      moveY(e.clientY - rect.top);
     };
-
     container.addEventListener('mousemove', handleMouseMove);
-
-    // 2. Floating floating animations for individual 404 numbers
-    numberRefs.current.forEach((num, index) => {
-      if (!num) return;
-      gsap.to(num, {
-        y: 'random(-15, 15)',
-        x: 'random(-10, 10)',
-        rotation: 'random(-8, 8)',
-        duration: `random(2, 3.5)`,
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut',
-        delay: index * 0.2,
-      });
-    });
-
-    // 3. Reveal content animation on mount
-    const tl = gsap.timeline();
-    tl.fromTo(
-      numberRefs.current,
-      { y: 100, opacity: 0, scale: 0.5 },
-      { y: 0, opacity: 1, scale: 1, duration: 1, ease: 'back.out(1.7)', stagger: 0.15 }
-    ).fromTo(
-      textRef.current?.children || [],
-      { y: 30, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', stagger: 0.1 },
-      '-=0.4'
-    );
 
     return () => {
       container.removeEventListener('mousemove', handleMouseMove);
-      numberRefs.current.forEach((num) => num && gsap.killTweensOf(num));
-      if (textRef.current) gsap.killTweensOf(textRef.current.children);
+      gsap.killTweensOf(spotlight);
+      ctx.revert();
     };
   }, []);
 
@@ -135,18 +130,18 @@ export default function NotFound() {
           </p>
           
           <div className="pt-6">
-            <a
-              href="/"
+            <Link
+              to="/"
               className="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-base-content/10 bg-base-200 hover:bg-base-300 active:scale-95 transition-all duration-200 font-medium tracking-wide focus:outline-none"
             >
               Return Home
-            </a>
+            </Link>
           </div>
         </div>
       </div>
 
       {/* Subtle ambient grid lines in background */}
-      <div className="absolute inset-0 pointer-events-none opacity-5 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-size-[40px_40px] mask-[image:]radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
+      <div className="absolute inset-0 pointer-events-none opacity-5 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-size-[40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
     </div>
   );
 }

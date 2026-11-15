@@ -24,7 +24,7 @@ const Magnet = ({ children }) => {
             xTo(x);
             yTo(y);
         }
-        const mouseLeave = (e) => {
+        const mouseLeave = () => {
             xTo(0);
             yTo(0);
         }

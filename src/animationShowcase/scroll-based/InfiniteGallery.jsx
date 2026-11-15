@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -57,14 +55,12 @@ export default function InfiniteGallery({
     const headingRef = useRef(null);
     const footerRef = useRef(null);
 
-    const [hoveredIndex, setHoveredIndex] = useState(null);
-
     // Animation and interaction state stored in refs for 60fps performance
     const stateRef = useRef({
         zOffset: 0,
         velocity: 0,
         isAutoPlay: true,
-        lastInteraction: Date.now(),
+        lastInteraction: 0, // set on first interaction
         hoveredItem: null,
         mouseX: -9999,
         mouseY: -9999,
@@ -283,7 +279,6 @@ export default function InfiniteGallery({
             });
 
             state.hoveredItem = currentHovered;
-            setHoveredIndex(currentHovered);
 
             animationFrameId = requestAnimationFrame(render);
         };

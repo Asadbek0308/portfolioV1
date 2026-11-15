@@ -1,21 +1,17 @@
-import { createContext, useContext, useState, useEffect } from "react";
-
-const ThemeContext = createContext();
+import { useState, useEffect } from "react";
+import { ThemeContext, getInitialTheme } from "./theme";
 
 export default function ThemeProvider({ children }) {
-    // Initial state reads from localStorage if in a browser environment, otherwise defaults to "light"
-    const [theme, setTheme] = useState(() => {
-        if (typeof window !== "undefined") {
-            return localStorage.getItem("theme") || "light";
-        }
-        return "light";
-    });
+    // index.html already applied the saved theme before first paint; this just mirrors it
+    const [theme, setTheme] = useState(getInitialTheme);
 
-    // Automatically sync state changes to localStorage and the document's data-theme attribute
+    // Sync state changes to localStorage and the document's data-theme attribute
     useEffect(() => {
-        if (typeof window !== "undefined") {
+        document.documentElement.setAttribute("data-theme", theme);
+        try {
             localStorage.setItem("theme", theme);
-            document.documentElement.setAttribute("data-theme", theme);
+        } catch {
+            // storage can be unavailable (private mode, blocked site data)
         }
     }, [theme]);
 
@@ -25,11 +21,3 @@ export default function ThemeProvider({ children }) {
         </ThemeContext.Provider>
     );
 }
-
-export const useTheme = () => {
-    const context = useContext(ThemeContext);
-    if (context === undefined) {
-        throw new Error("useTheme must be used within a ThemeProvider. Ensure your App component wraps Header in <ThemeProvider>.");
-    }
-    return context;
-};

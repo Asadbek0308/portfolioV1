@@ -2,39 +2,41 @@
 import { useState, useRef, useEffect, Fragment } from 'react'
 import gsap from 'gsap'
 import { Link } from 'react-router-dom'
+import { WORKS } from '../lib/works'
+import { SLOTS, homePlaceholders } from '../lib/placeholders'
 
 // 2. Constants & Data
+// Real projects come from src/works (same source as the Work page). Placeholders
+// fill the remaining slots until enough real projects exist.
+const REAL = WORKS.filter((w) => w.featured !== false)
+  .slice(0, SLOTS)
+  .map((w) => ({
+    slug: w.slug,
+    title: w.title,
+    src: w.cover,
+    alt: w.coverAlt || w.title,
+    color: w.accent || '#1f1f1f',
+    tags: w.tags?.length ? w.tags : [w.type, ...w.stack.slice(0, 2)].filter(Boolean),
+  }))
 const PROJECTS_DATA = [
-  {
-    title: 'C2 Montreal',
-    src: 'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=600&auto=format&fit=crop',
-    color: '#000000',
-    tags: ['Brand', 'Web Design', 'Motion'],
-  },
-  {
-    title: 'Office Spaces',
-    src: 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=600&auto=format&fit=crop',
-    color: '#8C8C8C',
-    tags: ['UI Dev', 'Interior', 'Framer'],
-  },
-  {
-    title: 'Locomotive',
-    src: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
-    color: '#EFEFEF',
-    tags: ['Frontend', 'Scroll FX', 'Case Study'],
-  },
-  {
-    title: 'Silencio',
-    src: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?q=80&w=600&auto=format&fit=crop',
-    color: '#706D57',
-    tags: ['Product', 'Web App', 'Branding'],
-  },
+  ...REAL,
+  ...homePlaceholders(REAL.length).map((p) => ({ ...p, slug: null, alt: p.title })),
 ]
 
 const MODAL_OFFSET = { x: 150, y: 175 }
 const CURSOR_OFFSET = { x: 28, y: 28 }
 
 // 3. Helper Components
+// Real projects link to their page; placeholders are plain rows
+const ProjectRow = ({ slug, children, ...rest }) =>
+  slug ? (
+    <Link to={`/work/${slug}`} {...rest}>
+      {children}
+    </Link>
+  ) : (
+    <div {...rest}>{children}</div>
+  )
+
 const ProjectTags = ({ tags }) => (
   <>
     {tags.map((tag, i) => (
@@ -140,11 +142,12 @@ const RecentProjects = () => {
         {/* Project List */}
         <div className="border-t border-base-content/10">
           {PROJECTS_DATA.map((project, index) => (
-            <div
-              key={project.title}
-              onMouseEnter={() => setModalState({ isActive: true, index })}
-              onMouseLeave={() => setModalState({ isActive: false, index })}
-              className="group relative border-b border-base-content/10 py-8 md:py-14 cursor-pointer"
+            <ProjectRow
+              key={project.slug || project.title}
+              slug={project.slug}
+              onPointerEnter={(e) => e.pointerType === 'mouse' && setModalState({ isActive: true, index })}
+              onPointerLeave={() => setModalState({ isActive: false, index })}
+              className="group relative block border-b border-base-content/10 py-8 md:py-14 cursor-pointer"
             >
               {/* MOBILE VIEW */}
               <div className="flex flex-col md:hidden space-y-4">
@@ -154,7 +157,9 @@ const RecentProjects = () => {
                 >
                   <img
                     src={project.src}
-                    alt={project.title}
+                    alt={project.alt}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover rounded-lg shadow-md grayscale opacity-90"
                   />
                 </div>
@@ -177,7 +182,7 @@ const RecentProjects = () => {
                   <ProjectTags tags={project.tags} />
                 </p>
               </div>
-            </div>
+            </ProjectRow>
           ))}
         </div>
       </div>
@@ -190,13 +195,14 @@ const RecentProjects = () => {
         <div ref={sliderRef} className="w-full h-full relative">
           {PROJECTS_DATA.map((project) => (
             <div
-              key={project.title}
+              key={project.slug || project.title}
+              aria-hidden="true"
               className="w-full h-full flex justify-center items-center"
               style={{ backgroundColor: project.color }}
             >
               <img
                 src={project.src}
-                alt={project.title}
+                alt=""
                 className="w-[80%] h-[75%] object-cover grayscale opacity-90"
               />
             </div>

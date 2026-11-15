@@ -1,11 +1,16 @@
 @import "tailwindcss";
-@plugin "daisyui"{
-  themes:all;
-};
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}
 
-* {
-  font-family: 'Roboto Condensed', sans-serif;
-  /* font-family: "Creepster", system-ui; */
+/* `dark:` utilities follow the site's theme toggle (data-theme), not the OS setting */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Roboto Condensed is the default sans font. Setting it through the theme
+   (instead of a `*` rule) keeps `font-mono` / `font-sans` utilities working. */
+@theme {
+  --font-sans: 'Roboto Condensed', ui-sans-serif, system-ui, sans-serif;
+  --font-condensed: 'Roboto Condensed', ui-sans-serif, system-ui, sans-serif;
 }
 
 html.lenis, html.lenis body {
@@ -35,4 +40,10 @@ html {
 }
 html::-webkit-scrollbar {
   display: none;            /* Chrome, Safari, Edge, Opera */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+  }
 }

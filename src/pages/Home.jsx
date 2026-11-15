@@ -1,8 +1,5 @@
-import React, { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-// import demo_portfolio from '../assets/demo_portfolio.JPG'
-import demo_portfolio from '../assets/demo_portfolio.webp'
-
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
 import InfiniteText from '../animations/InfiniteText'
@@ -33,7 +30,6 @@ const Home = () => {
       const heroSpot = heroSpotRef.current
       const targetSpot = targetSpotRef.current
       const imgWrapper = imageWrapperRef.current
-      let flipTween
 
       if (heroSpot && targetSpot && imgWrapper) {
         const setStartState = () => {
@@ -53,7 +49,7 @@ const Home = () => {
 
         setStartState()
 
-        flipTween = gsap.to(imgWrapper, {
+        gsap.to(imgWrapper, {
           x: 0,
           y: 0,
           scaleX: 1,
@@ -135,7 +131,7 @@ const Home = () => {
       <section className="min-h-screen w-full text-base-content font-sans flex items-center justify-center p-6 md:p-12 lg:p-20">
         <div className="w-full max-w-7xl grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 items-center">
           <div className="md:col-span-4 h-full flex flex-col justify-between space-y-12 lg:space-y-24">
-            <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight">Hey!</h1>
+            <h2 className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight">Hey!</h2>
             <p className="text-lg lg:text-xl font-medium leading-relaxed text-base-content/90">
               I'm Asadbek, a front-end developer skilled in building responsive, high-performance web applications with React, JavaScript, and Tailwind CSS.
             </p>
@@ -150,7 +146,7 @@ const Home = () => {
                 <GlitchImage
                   grayscale={isGrayscale}
                   className="w-full h-full object-cover"
-                  // src={demo_portfolio}
+                  // TODO: pass your own photo here, e.g. src={portrait} (import it from ../assets)
                   alt="Asadbek portfolio preview"
                 />
               </div>
@@ -166,7 +162,7 @@ const Home = () => {
             </p>
             <div>
               <Link
-                to="work"
+                to="/work"
                 className="inline-flex items-center gap-3 text-base font-semibold text-base-content hover:opacity-85 transition-opacity group"
               >
                 <span className="text-xl font-bold uppercase tracking-tight">Get Started</span>

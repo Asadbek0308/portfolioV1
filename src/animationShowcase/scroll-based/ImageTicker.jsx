@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -12,6 +12,38 @@ const itemsData = [
   { id: 5, title: "Dune Topography", category: "Landscape", imgUrl: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=600&q=80&auto=format&fit=crop" },
   { id: 6, title: "Nordic Minimal", category: "Interior", imgUrl: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=600&q=80&auto=format&fit=crop" },
 ];
+
+
+// Defined outside the component so React keeps them stable between renders
+const TickerCard = ({ item }) => (
+  <div className="group relative w-full aspect-3/4 mb-4 overflow-hidden rounded-xl bg-slate-900 border border-slate-800 cursor-pointer">
+    <img
+      src={item.imgUrl}
+      alt={item.title}
+      loading="lazy"
+      decoding="async"
+      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 will-change-transform"
+    />
+    <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-slate-950/20 to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-80" />
+    <div className="absolute inset-0 p-5 flex flex-col justify-end text-left">
+      <p className="text-xs font-semibold tracking-wider text-teal-400 uppercase transform translate-y-2 opacity-0 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+        {item.category}
+      </p>
+      <h3 className="text-base font-bold text-white mt-1 transform translate-y-3 opacity-0 transition-all duration-300 delay-75 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+        {item.title}
+      </h3>
+    </div>
+  </div>
+);
+
+const TickerColumn = ({ colRef }) => (
+  <div className="relative h-full overflow-hidden">
+    <div ref={colRef} className="will-change-transform">
+      {itemsData.map((item) => <TickerCard key={item.id} item={item} />)}
+      {itemsData.map((item) => <TickerCard key={`dup-${item.id}`} item={item} />)}
+    </div>
+  </div>
+);
 
 export default function ImageTicker() {
   const containerRef = useRef(null);
@@ -59,36 +91,6 @@ export default function ImageTicker() {
 
     return () => ctx.revert();
   }, []);
-
-  const TickerCard = ({ item }) => (
-    <div className="group relative w-full aspect-3/4 mb-4 overflow-hidden rounded-xl bg-slate-900 border border-slate-800 cursor-pointer">
-      <img
-        src={item.imgUrl}
-        alt={item.title}
-        loading="lazy"
-        decoding="async"
-        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 will-change-transform"
-      />
-      <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-slate-950/20 to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-80" />
-      <div className="absolute inset-0 p-5 flex flex-col justify-end text-left">
-        <p className="text-xs font-semibold tracking-wider text-teal-400 uppercase transform translate-y-2 opacity-0 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
-          {item.category}
-        </p>
-        <h3 className="text-base font-bold text-white mt-1 transform translate-y-3 opacity-0 transition-all duration-300 delay-75 ease-out group-hover:translate-y-0 group-hover:opacity-100">
-          {item.title}
-        </h3>
-      </div>
-    </div>
-  );
-
-  const TickerColumn = ({ colRef }) => (
-    <div className="relative h-full overflow-hidden">
-      <div ref={colRef} className="will-change-transform">
-        {itemsData.map((item) => <TickerCard key={item.id} item={item} />)}
-        {itemsData.map((item) => <TickerCard key={`dup-${item.id}`} item={item} />)}
-      </div>
-    </div>
-  );
 
   return (
     <div className="w-full bg-slate-950 py-24 min-h-screen grid place-items-center">

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/theme';
 import { MorphSVGPlugin } from 'gsap/MorphSVGPlugin';
 import { Link } from 'react-router-dom';
+import { getLenis } from '../lib/lenis';
 
 if (typeof window !== 'undefined') {
     gsap.registerPlugin(CustomEase, MorphSVGPlugin);
@@ -21,19 +22,19 @@ const MENU_ITEMS = [
         text: 'work',
         imgUrl:
             'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=400&q=80',
-        link: 'work',
+        link: '/work',
     },
     {
         text: 'animations',
         imgUrl:
             'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=400&q=80',
-        link: 'animations',
+        link: '/animations',
     },
     {
         text: 'academics',
         imgUrl:
             'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=400&q=80',
-        link: 'academics',
+        link: '/academics',
     },
 ];
 
@@ -111,10 +112,14 @@ function HoverImageLink({ text, imgUrl, link, onClick }) {
 /* ==========================================================================
    MENU GRID TRIGGER
    ========================================================================== */
-function MenuGridButton({ isOpen, onToggle, sizeClass }) {
+function MenuGridButton({ isOpen, onToggle, sizeClass, buttonRef }) {
     const { theme } = useTheme();
     const [isGridHovered, setIsGridHovered] = useState(false);
     const containerRef = useRef(null);
+    const setButtonRef = (el) => {
+        containerRef.current = el;
+        if (buttonRef) buttonRef.current = el;
+    };
     const waveTl = useRef(null);
 
     useEffect(() => {
@@ -172,7 +177,7 @@ function MenuGridButton({ isOpen, onToggle, sizeClass }) {
 
     return (
         <button
-            ref={containerRef}
+            ref={setButtonRef}
             onClick={onToggle}
             onMouseEnter={() => setIsGridHovered(true)}
             onMouseLeave={() => setIsGridHovered(false)}
@@ -200,11 +205,6 @@ function ThemeToggle({ sizeClass }) {
     const moonPath =
         'M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401';
     const circlePath = 'M 12,3 A 9,9 0 1,1 11.9,3 Z';
-
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-    }, [theme]);
 
     useEffect(() => {
         const target =
@@ -245,18 +245,21 @@ export default function Header() {
     const menuRef = useRef(null);
     const stripsRef = useRef([]);
     const linksContainerRef = useRef(null);
+    const menuButtonRef = useRef(null);
     const tl = useRef(null);
     const isAnimating = useRef(false);
 
     useEffect(() => {
+        const strips = stripsRef.current;
         return () => {
             tl.current?.kill();
-            gsap.killTweensOf(stripsRef.current);
+            gsap.killTweensOf(strips);
         };
     }, []);
 
-    const playCloseTransition = useCallback(() => {
-        if (isAnimating.current) return;
+    // force: a menu link was clicked, so close even if the open animation is still running
+    const playCloseTransition = useCallback((force = false) => {
+        if (isAnimating.current && force !== true) return;
         isAnimating.current = true;
 
         const strips = stripsRef.current;
@@ -271,6 +274,7 @@ export default function Header() {
                 gsap.set(menuRef.current, { display: 'none', pointerEvents: 'none' });
                 setIsOpen(false);
                 isAnimating.current = false;
+                menuButtonRef.current?.focus({ preventScroll: true });
             },
         });
 
@@ -304,6 +308,7 @@ export default function Header() {
         tl.current = gsap.timeline({
             onComplete: () => {
                 isAnimating.current = false;
+                linksContainerRef.current?.querySelector('a')?.focus({ preventScroll: true });
             },
         });
 
@@ -333,24 +338,60 @@ export default function Header() {
         }
     }, [isOpen, playOpenTransition, playCloseTransition]);
 
+    // While the menu is open: freeze page scroll, close on Escape, keep Tab focus inside
     useEffect(() => {
         if (!isOpen) return;
+        const lenis = getLenis();
+        lenis?.stop();
+        const prevOverflow = document.documentElement.style.overflow;
+        document.documentElement.style.overflow = 'hidden';
+
         const onKeyDown = (e) => {
-            if (e.key === 'Escape') handleToggle();
+            if (e.key === 'Escape') {
+                handleToggle();
+                return;
+            }
+            if (e.key !== 'Tab') return;
+            const focusables = [
+                menuButtonRef.current,
+                ...(linksContainerRef.current?.querySelectorAll('a') ?? []),
+            ].filter(Boolean);
+            if (!focusables.length) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            } else if (!focusables.includes(document.activeElement)) {
+                e.preventDefault();
+                first.focus();
+            }
         };
         window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+            document.documentElement.style.overflow = prevOverflow;
+            lenis?.start();
+        };
     }, [isOpen, handleToggle]);
 
     return (
         <div>
             <header className="fixed top-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-6xl z-50 flex justify-between items-center gap-3 p-3 rounded-2xl bg-base-content/20 backdrop-blur-xs">
-                <Link to="/" className="font-semibold text-lg tracking-wide select-none text-base-100">
+                <Link to="/" className="font-semibold text-lg tracking-wide select-none text-base-content">
                     Asadbek
                 </Link>
                 <div className="flex items-center gap-3">
                     <ThemeToggle sizeClass="w-11 h-11 p-2" />
-                    <MenuGridButton isOpen={isOpen} onToggle={handleToggle} sizeClass="w-11 h-11 p-2" />
+                    <MenuGridButton
+                        buttonRef={menuButtonRef}
+                        isOpen={isOpen}
+                        onToggle={handleToggle}
+                        sizeClass="w-11 h-11 p-2"
+                    />
                 </div>
             </header>
 
@@ -383,7 +424,7 @@ export default function Header() {
                                 text={item.text}
                                 imgUrl={item.imgUrl}
                                 link={item.link}
-                                onClick={playCloseTransition}
+                                onClick={() => playCloseTransition(true)}
                             />
                         </div>
                     ))}

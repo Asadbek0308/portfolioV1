@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 
 // Target direction angles (0 deg = Up, 90 deg = Right, 180 deg = Down, 270 deg = Left)

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import gsap from 'gsap';
 import { Plus, Edit3, Image, FileText, Camera } from 'lucide-react';
 

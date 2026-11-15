@@ -13,11 +13,14 @@ const GREETINGS = [
 
 export default function GreetingText() {
   const [shouldShow, setShouldShow] = useState(() => {
-    // Check if session storage exists in window context (SSR safety check)
-    if (typeof window !== "undefined") {
+    if (typeof window === "undefined") return true;
+    // Skip the intro for users who asked the OS for reduced motion
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+    try {
       return !sessionStorage.getItem("hasSeenGreeting");
+    } catch {
+      return true; // storage blocked: just show it
     }
-    return true;
   });
 
   const containerRef = useRef(null);
@@ -34,7 +37,11 @@ export default function GreetingText() {
       const tl = gsap.timeline({
         onComplete: () => {
           // Mark as seen in session storage when animation finishes
-          sessionStorage.setItem("hasSeenGreeting", "true");
+          try {
+            sessionStorage.setItem("hasSeenGreeting", "true");
+          } catch {
+            // storage unavailable
+          }
           // Optionally unmount component state or hide overlay
           gsap.set(containerRef.current, { display: "none", pointerEvents: "none" });
           setShouldShow(false);

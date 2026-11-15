@@ -13,6 +13,27 @@
   <meta name="keywords" content="Frontend Developer, Creative Developer, React, Web Development, UI/UX Design, Portfolio" />
   <meta name="author" content="Asadbek" />
   <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1d232a" media="(prefers-color-scheme: dark)" />
+
+  <!-- Open Graph / social previews -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Asadbek | Creative Developer & UI/UX Specialist" />
+  <meta property="og:description" content="Portfolio of Asadbek, a creative frontend developer specializing in interactive web experiences, custom animations, and modern user interfaces." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <!-- TODO: add og:url, og:image and <link rel="canonical"> once the domain is final -->
+
+  <!-- Apply the saved theme before first paint so there is no light-mode flash -->
+  <script>
+    (function () {
+      var t;
+      try { t = localStorage.getItem('theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') {
+        t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 
   <!-- Fonts Optimization -->
   <link rel="preconnect" href="https://fonts.googleapis.com">

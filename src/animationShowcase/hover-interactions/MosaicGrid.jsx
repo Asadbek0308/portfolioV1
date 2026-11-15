@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 
 /* ===========================================================
@@ -262,6 +262,7 @@ export default function MosaicGrid() {
 
   useEffect(() => {
     const container = containerRef.current;
+    const state = stateRef.current;
     if (!container) return;
 
     let mounted = true;
@@ -289,7 +290,7 @@ export default function MosaicGrid() {
     return () => {
       mounted = false;
 
-      clearTimeout(stateRef.current.hoverTimer);
+      clearTimeout(state.hoverTimer);
 
       container.__ctx?.revert();
     };

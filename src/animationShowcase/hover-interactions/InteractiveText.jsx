@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { gsap } from "gsap";
 
 // Mixed vertical (portrait) and horizontal (landscape) images
@@ -24,9 +24,12 @@ export default function InteractiveText() {
   const intervalRef = useRef(null);
   const imageCounter = useRef(0);
   const isLeavingRef = useRef(false);
+  // mirrored in state so render never reads a ref
+  const [isLeaving, setIsLeaving] = useState(false);
 
   const handleMouseEnter = (wordType) => {
     isLeavingRef.current = false;
+    setIsLeaving(false);
     setHoveredWord(wordType);
     const imagesToUse = wordType === "details" ? IMAGES_SET_1 : IMAGES_SET_2;
     let index = 0;
@@ -57,6 +60,7 @@ export default function InteractiveText() {
       clearInterval(intervalRef.current);
     }
     isLeavingRef.current = true;
+    setIsLeaving(true);
 
     // Keep only the last (topmost) active image, discarding the rest immediately
     setVisibleImages((prev) => (prev.length > 0 ? [prev[prev.length - 1]] : []));
@@ -96,7 +100,7 @@ export default function InteractiveText() {
           {hoveredWord === "details" && (
             <ImageStackImages 
               images={visibleImages} 
-              isLeaving={isLeavingRef.current}
+              isLeaving={isLeaving}
               onFinalComplete={handleFinalImageComplete}
             />
           )}
@@ -112,7 +116,7 @@ export default function InteractiveText() {
           {hoveredWord === "playground" && (
             <ImageStackImages 
               images={visibleImages} 
-              isLeaving={isLeavingRef.current}
+              isLeaving={isLeaving}
               onFinalComplete={handleFinalImageComplete}
             />
           )}

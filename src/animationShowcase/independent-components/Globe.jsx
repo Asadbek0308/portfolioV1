@@ -260,10 +260,6 @@ const SearchSelect = memo(function SearchSelect({ label, options, value, onChang
       .slice(0, 50);
   }, [options, query, excludeId]);
 
-  useEffect(() => {
-    setHighlighted(0);
-  }, [filtered]);
-
   const commit = (o) => {
     onChange(o);
     setQuery("");
@@ -307,7 +303,10 @@ const SearchSelect = memo(function SearchSelect({ label, options, value, onChang
           setQuery("");
           setOpen(true);
         }}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setHighlighted(0); // new results: start from the top
+        }}
         onKeyDown={onKeyDown}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
         className={`w-full text-xs font-mono px-3 py-1.5 rounded-lg bg-base-100 border border-base-300 text-base-content/80 shadow-sm focus:outline-none focus:border-base-content/40 ${FOCUS_RING}`}
@@ -381,8 +380,8 @@ export default function InteractiveEarthGlobe() {
   }, []);
 
   // geojson is fetched once per page load and reused across mounts/remounts
+  // status already starts as "loading"; retry() resets it before calling this
   const fetchCountries = useCallback(() => {
-    setStatus("loading");
     loadCountriesGeoJSON()
       .then((geo) => {
         setCountries(geo.features);
@@ -394,6 +393,11 @@ export default function InteractiveEarthGlobe() {
   useEffect(() => {
     if (webglSupported) fetchCountries();
   }, [webglSupported, fetchCountries]);
+
+  const retryFetch = useCallback(() => {
+    setStatus("loading");
+    fetchCountries();
+  }, [fetchCountries]);
 
   useEffect(() => {
     if (globeRef.current) globeRef.current.pointOfView(DEFAULT_POV, 0);
@@ -483,6 +487,17 @@ export default function InteractiveEarthGlobe() {
     return haversineKm(startCountry.lat, startCountry.lng, endCountry.lat, endCountry.lng);
   }, [startCountry, endCountry]);
 
+  // picking the second endpoint stops the idle spin so the route stays framed
+  const pickStart = useCallback((c) => {
+    setStartCountry(c);
+    if (c && endCountry) setAutoSpin(false);
+  }, [endCountry]);
+
+  const pickEnd = useCallback((c) => {
+    setEndCountry(c);
+    if (c && startCountry) setAutoSpin(false);
+  }, [startCountry]);
+
   const clearRoute = useCallback(() => {
     setStartCountry(null);
     setEndCountry(null);
@@ -496,7 +511,6 @@ export default function InteractiveEarthGlobe() {
   // center the viewport on the arc's midpoint once both endpoints are picked
   useEffect(() => {
     if (!startCountry || !endCountry) return;
-    setAutoSpin(false);
     globeRef.current?.pointOfView(routeFramingView(startCountry, endCountry), flyMs);
   }, [startCountry, endCountry, flyMs]);
 
@@ -636,7 +650,7 @@ export default function InteractiveEarthGlobe() {
         <div className="absolute top-4 left-4 flex items-center gap-2 text-xs text-warning font-mono bg-warning/10 border border-warning/30 px-3 py-1.5 rounded-lg">
           <span>couldn't load country data</span>
           <button
-            onClick={fetchCountries}
+            onClick={retryFetch}
             className={`underline hover:no-underline ${FOCUS_RING}`}
           >
             retry
@@ -668,7 +682,7 @@ export default function InteractiveEarthGlobe() {
               label="From"
               options={countryOptions}
               value={startCountry}
-              onChange={setStartCountry}
+              onChange={pickStart}
               placeholder="Start country…"
               excludeId={endCountry?.id}
             />
@@ -676,7 +690,7 @@ export default function InteractiveEarthGlobe() {
               label="To"
               options={countryOptions}
               value={endCountry}
-              onChange={setEndCountry}
+              onChange={pickEnd}
               placeholder="Destination…"
               excludeId={startCountry?.id}
             />

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { gsap } from "gsap"
 
 const PAINTERS = [
@@ -237,6 +237,8 @@ export default function GSAPGlassRefractionCarousel() {
       window.removeEventListener("resize", handleResize)
       ctx.revert()
     }
+    // mount-only setup: the helpers read refs, so re-running on every render is not wanted
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -266,7 +268,7 @@ export default function GSAPGlassRefractionCarousel() {
     startRotAngle.current = rotProxy.current.angle
 
     lastAngle.current = angle
-    lastTime.current = performance.now()
+    lastTime.current = e.timeStamp // same clock as performance.now()
     velocity.current = 0
 
     window.addEventListener("pointermove", handlePointerMove, { passive: true })

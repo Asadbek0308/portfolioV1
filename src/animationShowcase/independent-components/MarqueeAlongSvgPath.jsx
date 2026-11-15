@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from "react"
+import React, { useEffect, useId, useRef, useMemo } from "react"
 import { gsap } from "gsap"
 
 // Utility function for conditional classes
@@ -61,10 +61,9 @@ export function MarqueeAlongSvgPath({
   const lastPointerPosition = useRef({ x: 0, y: 0 })
   const baseOffset = useRef(0)
 
-  const generatedId = useMemo(
-    () => pathId || `marquee-path-${Math.random().toString(36).substring(7)}`,
-    [pathId]
-  )
+  // useId is stable across renders and unique per instance (Math.random in render is not)
+  const autoId = useId().replace(/:/g, "")
+  const generatedId = pathId || `marquee-path-${autoId}`
 
   // Duplicate items array based on repeat count
   const items = useMemo(() => {

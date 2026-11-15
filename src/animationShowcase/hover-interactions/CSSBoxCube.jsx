@@ -1,4 +1,4 @@
-import React, {
+import {
   useRef,
   useEffect,
   useImperativeHandle,
@@ -118,7 +118,7 @@ export const CSSBox = forwardRef(
       if (!draggable) return
       try {
         e.currentTarget.releasePointerCapture(e.pointerId)
-      } catch (err) {
+      } catch {
         // Handle capture release edge cases gracefully
       }
       isDragging.current = false

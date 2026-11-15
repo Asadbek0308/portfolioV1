@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { gsap } from "gsap"
 
 // SVG Path vectors for numbers 1 to 5

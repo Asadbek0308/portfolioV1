@@ -41,17 +41,23 @@ export default function GlitchImage({
       });
     };
 
+    // Lines that were glitching on the previous tick: only these need a reset
+    // tween, instead of re-tweening every idle line every 80ms.
+    let activeLines = new Set();
+
     const glitchTick = () => {
       const hoverIndex = hoverIndexRef.current;
+      const nextActive = new Set();
 
       for (let i = 0; i < lineCount; i++) {
         const dist = Math.abs(i - hoverIndex);
         const isActive = hoverIndex >= 0 && dist <= activeSpread;
 
         if (!isActive) {
-          resetLine(i, 0.2);
+          if (activeLines.has(i)) resetLine(i, 0.2);
           continue;
         }
+        nextActive.add(i);
 
         const intensity = 2 - dist / (activeSpread + 1);
 
@@ -82,6 +88,7 @@ export default function GlitchImage({
           });
         }
       }
+      activeLines = nextActive;
     };
 
     const startGlitch = () => {
@@ -93,7 +100,8 @@ export default function GlitchImage({
     const stopGlitch = () => {
       if (tickerRef.current) clearInterval(tickerRef.current);
       hoverIndexRef.current = -1;
-      for (let i = 0; i < lineCount; i++) resetLine(i, 0.3);
+      activeLines.forEach((i) => resetLine(i, 0.3));
+      activeLines = new Set();
     };
 
     const handlePointerMove = (e) => {
@@ -111,8 +119,11 @@ export default function GlitchImage({
     root.addEventListener("touchmove", handlePointerMove, { passive: true });
     root.addEventListener("touchend", stopGlitch);
 
+    const lineEls = [shiftRefs.current, redRefs.current, cyanRefs.current].flat().filter(Boolean);
+
     return () => {
       if (tickerRef.current) clearInterval(tickerRef.current);
+      gsap.killTweensOf(lineEls);
       root.removeEventListener("mouseenter", startGlitch);
       root.removeEventListener("mousemove", handlePointerMove);
       root.removeEventListener("mouseleave", stopGlitch);

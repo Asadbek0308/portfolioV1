@@ -1,103 +1,42 @@
 // src/pages/AnimationDetail.jsx
-import React, { lazy, Suspense, useState, useMemo, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { ANIMATIONS, ANIMATIONS_BY_SLUG } from '../lib/showcase'
 
-// 1. Scan recursively for renderable components across subfolders (lazy loaded)
-const componentModules = import.meta.glob('../animationShowcase/**/*.jsx')
-
-// 2. Scan recursively for raw source code as plain text strings (?raw query)
-const rawSourceModules = import.meta.glob('../animationShowcase/**/*.jsx', {
-  query: '?raw',
-  import: 'default'
-})
-
-// Build formatted helper function for Titles
-const formatTitle = (slug) => {
-  return slug
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
-
-// Build index mapping & structured list of all items dynamically
-const ANIMATIONS_MAP = {}
-const ANIMATIONS_LIST = []
-
-Object.keys(componentModules).forEach((path) => {
-  // Path example: '../animationShowcase/hover-interactions/GlowButton.jsx'
-  const fileName = path.split('/').pop().replace(/\.jsx$/, '')
-  
-  // Format slug matching FilterProjects convention
-  const slug = fileName
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/[\s_]+/g, '-')
-    .toLowerCase()
-
-  const item = {
-    slug,
-    title: formatTitle(slug),
-    Component: lazy(componentModules[path]),
-    getSourceCode: rawSourceModules[path]
-  }
-
-  ANIMATIONS_MAP[slug] = item
-  ANIMATIONS_LIST.push(item)
-})
+// One lazy component per showcase entry, created once at module level
+const LAZY_COMPONENTS = Object.fromEntries(ANIMATIONS.map((a) => [a.slug, lazy(a.load)]))
 
 export default function AnimationDetail() {
   const { animationName } = useParams()
+  // key: every slug gets a fresh view, so tab, code and reset state never leak between animations
+  return <AnimationDetailView key={animationName} slug={animationName} />
+}
+
+function AnimationDetailView({ slug }) {
   const [activeTab, setActiveTab] = useState('preview') // 'preview' | 'code'
   const [rawCode, setRawCode] = useState('')
   const [copied, setCopied] = useState(false)
   const [loadingCode, setLoadingCode] = useState(false)
-  
-  // State key to trigger forced re-mount when resetting animations
+  // Changing this key forces the preview to unmount and re-mount
   const [resetKey, setResetKey] = useState(0)
+  const copyTimer = useRef(null)
 
-  const target = ANIMATIONS_MAP[animationName]
+  useEffect(() => () => clearTimeout(copyTimer.current), [])
 
-  // Reset tab, cached raw code, and reset key whenever the URL slug changes
-  useEffect(() => {
-    setActiveTab('preview')
-    setRawCode('')
-    setResetKey(0)
-  }, [animationName])
-
-  // Compute current, previous, and next animation details
-  const { currentIndex, prevAnimation, nextAnimation } = useMemo(() => {
-    if (!ANIMATIONS_LIST.length || !animationName) {
-      return { currentIndex: -1, prevAnimation: null, nextAnimation: null }
-    }
-    const index = ANIMATIONS_LIST.findIndex((item) => item.slug === animationName)
-    if (index === -1) {
-      return { currentIndex: -1, prevAnimation: null, nextAnimation: null }
-    }
-
-    const total = ANIMATIONS_LIST.length
-    const prevIndex = (index - 1 + total) % total
-    const nextIndex = (index + 1) % total
-
-    return {
-      currentIndex: index,
-      prevAnimation: ANIMATIONS_LIST[prevIndex],
-      nextAnimation: ANIMATIONS_LIST[nextIndex]
-    }
-  }, [animationName])
-
-  // Convert URL slug to human-readable title
-  const displayTitle = useMemo(() => {
-    return target ? target.title : formatTitle(animationName || 'Animation')
-  }, [target, animationName])
+  const target = ANIMATIONS_BY_SLUG[slug]
+  const currentIndex = target ? ANIMATIONS.indexOf(target) : -1
+  const total = ANIMATIONS.length
+  const prevAnimation = currentIndex >= 0 ? ANIMATIONS[(currentIndex - 1 + total) % total] : null
+  const nextAnimation = currentIndex >= 0 ? ANIMATIONS[(currentIndex + 1) % total] : null
 
   // Lazy load raw code text when switching to Code tab
   const handleTabChange = async (tab) => {
     setActiveTab(tab)
-    if (tab === 'code' && !rawCode && target?.getSourceCode) {
+    if (tab === 'code' && !rawCode && target?.loadSource) {
       setLoadingCode(true)
       try {
-        const codeText = await target.getSourceCode()
-        setRawCode(codeText)
-      } catch (err) {
+        setRawCode(await target.loadSource())
+      } catch {
         setRawCode('// Failed to load source code.')
       } finally {
         setLoadingCode(false)
@@ -105,23 +44,24 @@ export default function AnimationDetail() {
     }
   }
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (!rawCode) return
-    navigator.clipboard.writeText(rawCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleReset = () => {
-    setResetKey((prev) => prev + 1)
+    try {
+      await navigator.clipboard.writeText(rawCode)
+      setCopied(true)
+      clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard permission denied or insecure context: leave the button as is
+    }
   }
 
   if (!target) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center pt-24 text-center bg-base-100 text-base-content font-sans">
-        <h2 className="text-3xl font-bold mb-4 tracking-tight">Animation Not Found</h2>
+        <h1 className="text-3xl font-bold mb-4 tracking-tight">Animation Not Found</h1>
         <p className="text-base-content/60 mb-8 max-w-sm">
-          No component matching <code className="bg-base-200 px-2 py-1 rounded text-xs">{animationName}</code> was found.
+          No component matching <code className="font-mono bg-base-200 px-2 py-1 rounded text-xs">{slug}</code> was found.
         </p>
         <Link to="/animations" className="px-5 py-2.5 rounded-full bg-base-content text-base-100 text-xs font-mono font-medium hover:opacity-90 transition-opacity">
           ← Back to All Animations
@@ -130,7 +70,7 @@ export default function AnimationDetail() {
     )
   }
 
-  const { Component } = target
+  const Component = LAZY_COMPONENTS[slug]
 
   return (
     <div className="mt-20 min-h-screen bg-base-100 text-base-content px-6 py-12 max-w-7xl mx-auto font-sans flex flex-col justify-between">
@@ -144,16 +84,15 @@ export default function AnimationDetail() {
             >
               ← Back to Showcase
             </Link>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              {displayTitle}
-            </h1>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{target.title}</h1>
           </div>
 
           {/* Controls: Reset + View Toggle */}
           <div className="flex items-center gap-3">
             {activeTab === 'preview' && (
               <button
-                onClick={handleReset}
+                type="button"
+                onClick={() => setResetKey((k) => k + 1)}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-base-200 hover:bg-base-300 text-base-content/80 hover:text-base-content text-xs font-mono transition-colors"
                 title="Restart Animation"
               >
@@ -161,27 +100,23 @@ export default function AnimationDetail() {
               </button>
             )}
 
-            <div className="flex items-center gap-2 p-1 bg-base-200 rounded-full text-xs font-mono">
-              <button
-                onClick={() => handleTabChange('preview')}
-                className={`px-4 py-1.5 rounded-full transition-all ${
-                  activeTab === 'preview'
-                    ? 'bg-base-content text-base-100 shadow-md'
-                    : 'text-base-content/60 hover:text-base-content'
-                }`}
-              >
-                Preview
-              </button>
-              <button
-                onClick={() => handleTabChange('code')}
-                className={`px-4 py-1.5 rounded-full transition-all ${
-                  activeTab === 'code'
-                    ? 'bg-base-content text-base-100 shadow-md'
-                    : 'text-base-content/60 hover:text-base-content'
-                }`}
-              >
-                Code
-              </button>
+            <div role="tablist" aria-label="View" className="flex items-center gap-2 p-1 bg-base-200 rounded-full text-xs font-mono">
+              {['preview', 'code'].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  onClick={() => handleTabChange(tab)}
+                  className={`px-4 py-1.5 rounded-full capitalize transition-all ${
+                    activeTab === tab
+                      ? 'bg-base-content text-base-100 shadow-md'
+                      : 'text-base-content/60 hover:text-base-content'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -196,7 +131,6 @@ export default function AnimationDetail() {
               </div>
             }
           >
-            {/* key={resetKey} forces React to unmount and re-mount the component on reset */}
             <div
               key={resetKey}
               className="w-full min-h-[60vh] flex justify-center items-center rounded-2xl bg-base-200/30 border border-base-content/5 p-6 overflow-hidden"
@@ -208,11 +142,12 @@ export default function AnimationDetail() {
           <div className="relative w-full rounded-2xl bg-base-300 border border-base-content/10 overflow-hidden">
             {/* Code Header Bar */}
             <div className="flex justify-between items-center px-6 py-3 bg-base-200/80 border-b border-base-content/10 text-xs font-mono">
-              <span className="text-base-content/60">{animationName}.jsx</span>
+              <span className="text-base-content/60">{target.fileName}.jsx</span>
               <button
+                type="button"
                 onClick={handleCopy}
                 disabled={loadingCode || !rawCode}
-                className="px-3 py-1 rounded bg-base-content/10 hover:bg-base-content/20 text-base-content transition-colors font-mono text-xs"
+                className="px-3 py-1 rounded bg-base-content/10 hover:bg-base-content/20 text-base-content transition-colors font-mono text-xs disabled:opacity-50"
               >
                 {copied ? '✓ Copied!' : 'Copy Code'}
               </button>
@@ -224,9 +159,10 @@ export default function AnimationDetail() {
                 Loading code...
               </div>
             ) : (
-              <pre className="p-6 text-xs font-mono overflow-auto overscroll-contain text-base-content/90 leading-relaxed max-h-[70vh] selection:bg-base-content selection:text-base-100">
-  <code>{rawCode}</code>
-</pre>
+              <pre
+                data-lenis-prevent
+                className="p-6 text-xs font-mono overflow-auto overscroll-contain text-base-content/90 leading-relaxed max-h-[70vh] selection:bg-base-content selection:text-base-100"
+              ><code>{rawCode}</code></pre>
             )}
           </div>
         )}
@@ -235,7 +171,6 @@ export default function AnimationDetail() {
       {/* Footer Navigation Bar (Previous / Next Buttons) */}
       {prevAnimation && nextAnimation && (
         <div className="mt-12 pt-8 border-t border-base-content/10 flex items-center justify-between gap-4">
-          {/* Previous Link */}
           <Link
             to={`/animations/${prevAnimation.slug}`}
             className="group flex flex-col items-start gap-1 p-3 -ml-3 rounded-xl hover:bg-base-200/50 transition-all max-w-[45%]"
@@ -248,12 +183,10 @@ export default function AnimationDetail() {
             </span>
           </Link>
 
-          {/* Indicator */}
           <div className="hidden sm:block text-xs font-mono text-base-content/30">
-            {currentIndex + 1} / {ANIMATIONS_LIST.length}
+            {currentIndex + 1} / {total}
           </div>
 
-          {/* Next Link */}
           <Link
             to={`/animations/${nextAnimation.slug}`}
             className="group flex flex-col items-end text-right gap-1 p-3 -mr-3 rounded-xl hover:bg-base-200/50 transition-all max-w-[45%]"

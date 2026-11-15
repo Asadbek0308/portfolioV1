@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { gsap } from 'gsap';
 
 const DEFAULT_IMAGE =
@@ -55,19 +55,15 @@ const MouseLayerStack = ({
   const layerRefs = useRef([]);
   const targetRef = useRef({ x: 0, y: 0 });
   const historyRef = useRef([]);
-  layerRefs.current = [];
-
-  const addLayerRef = (el) => {
-    if (el) layerRefs.current.push(el);
-  };
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    const layers = layerRefs.current.slice(0, layerCount).filter(Boolean);
 
     // Anchor every layer centered on its own position; x/y (animated below)
     // then move it relative to that centered baseline.
-    gsap.set(layerRefs.current, { xPercent: -50, yPercent: -50, x: 0, y: 0 });
+    gsap.set(layers, { xPercent: -50, yPercent: -50, x: 0, y: 0 });
 
     // Enough buffered frames to cover the slowest (last) layer's delay.
     const maxDelayFrames = Math.max(1, Math.round((layerCount - 1) * layerDelay * FPS)) + 2;
@@ -75,8 +71,8 @@ const MouseLayerStack = ({
 
     // One persistent quickTo setter per axis per layer — cheap to call every
     // frame, and each call just smoothly redirects the layer's own tween.
-    const xSetters = layerRefs.current.map((el) => gsap.quickTo(el, 'x', { duration, ease }));
-    const ySetters = layerRefs.current.map((el) => gsap.quickTo(el, 'y', { duration, ease }));
+    const xSetters = layers.map((el) => gsap.quickTo(el, 'x', { duration, ease }));
+    const ySetters = layers.map((el) => gsap.quickTo(el, 'y', { duration, ease }));
 
     const handleMouseMove = (e) => {
       const rect = container.getBoundingClientRect();
@@ -92,7 +88,7 @@ const MouseLayerStack = ({
       history.push({ x: targetRef.current.x, y: targetRef.current.y });
       if (history.length > maxDelayFrames + 1) history.shift();
 
-      layerRefs.current.forEach((_, index) => {
+      layers.forEach((_, index) => {
         const frameOffset = Math.round(index * layerDelay * FPS);
         const sampleIndex = Math.max(0, history.length - 1 - frameOffset);
         const sample = history[sampleIndex] || { x: 0, y: 0 };
@@ -107,7 +103,7 @@ const MouseLayerStack = ({
     return () => {
       container.removeEventListener('mousemove', handleMouseMove);
       gsap.ticker.remove(tick);
-      gsap.killTweensOf(layerRefs.current);
+      gsap.killTweensOf(layers);
     };
   }, [xAxis, yAxis, moveStrength, layerDelay, duration, ease, layerCount]);
 
@@ -121,7 +117,9 @@ const MouseLayerStack = ({
         return (
           <img
             key={index}
-            ref={addLayerRef}
+            ref={(el) => {
+              layerRefs.current[index] = el;
+            }}
             src={imageSrc}
             alt=""
             aria-hidden={index > 0}

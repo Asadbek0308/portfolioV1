@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 
 const STRAND_A_IMAGES = [
@@ -19,22 +19,23 @@ const STRAND_B_IMAGES = [
   'https://images.unsplash.com/photo-1511497584788-876761c119ef?auto=format&fit=crop&w=400&q=80',
 ];
 
+// Constant, so it lives outside the component (no effect dependencies needed)
+const CONFIG = {
+  cardsPerStrand: 12,
+  radius: 380,
+  pitch: 700,
+  totalTurns: 2,
+  ambientSpeed: 0.015,     // Base continuous rotation speed
+  scrollSensitivity: 0.0012, // Scroll input intensity
+  friction: 0.08,          // Lerp inertia smoothing factor (0.01 - 0.1)
+  perspective: 1300,
+  strandBOffsetPx: 350,
+};
+const totalHeight = CONFIG.pitch * CONFIG.totalTurns;
+
 export default function DnaHelixGallery() {
   const containerRef = useRef(null);
 
-  const CONFIG = {
-    cardsPerStrand: 12,
-    radius: 380,
-    pitch: 700,
-    totalTurns: 2,
-    ambientSpeed: 0.015,     // Base continuous rotation speed
-    scrollSensitivity: 0.0012, // Scroll input intensity
-    friction: 0.08,          // Lerp inertia smoothing factor (0.01 - 0.1)
-    perspective: 1300,
-    strandBOffsetPx: 350,
-  };
-
-  const totalHeight = CONFIG.pitch * CONFIG.totalTurns;
 
   useEffect(() => {
     const container = containerRef.current;

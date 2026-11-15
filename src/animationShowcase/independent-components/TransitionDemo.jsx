@@ -1,4 +1,4 @@
-  import React, { useRef, useState, useEffect } from 'react';
+  import { useRef, useEffect } from 'react';
   import { gsap } from 'gsap';
   import { CustomEase } from 'gsap/CustomEase';
 
@@ -20,7 +20,6 @@
     const stripsRef = useRef([]);
     const isAnimating = useRef(false);
 
-    const [currentPage, setCurrentPage] = useState(1);
 
     // CLEANUP: Kill the timeline when the component unmounts
     useEffect(() => {
@@ -39,7 +38,6 @@
     const playForwardTransition = () => {
       if (isAnimating.current) return;
       isAnimating.current = true;
-      setCurrentPage(2);
 
       const p1Items = page1ContentRef.current?.querySelectorAll('.animate-p1');
       const p2Items = page2ContentRef.current?.querySelectorAll('.animate-p2');
@@ -61,7 +59,6 @@
     const playReverseTransition = () => {
       if (isAnimating.current) return;
       isAnimating.current = true;
-      setCurrentPage(1);
 
       const p1Items = page1ContentRef.current?.querySelectorAll('.animate-p1');
       const p2Items = page2ContentRef.current?.querySelectorAll('.animate-p2');
